@@ -36,6 +36,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public audioProducer?: any;
     public screenProducer?: any;
     public activeSpeakers: Set<string> = new Set();
+    public videoTracks: Map<string, Track> = new Map();
 
     supported(): boolean {
         return (
@@ -52,6 +53,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.roomId = roomId;
         this.participants.clear();
         this.activeSpeakers.clear();
+        this.videoTracks.clear();
 
         const room = new Room({
             audioCaptureDefaults: {
@@ -96,6 +98,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             const uid = p.identity;
             this.participants.delete(uid);
             this.activeSpeakers.delete(uid);
+            this.videoTracks.delete(uid);
             this.emit("userLeft", uid);
         });
 
@@ -136,6 +139,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 } else if (track.kind === Track.Kind.Video) {
                     u.screen = true;
                     this.participants.set(uid, u);
+                    this.videoTracks.set(uid, track);
                     this.emit("userStartProduce", uid, "screen");
                 }
             },
@@ -159,6 +163,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     this.emit("userStopProduce", uid, "audio");
                 } else if (track.kind === Track.Kind.Video) {
                     track.detach().forEach((el) => el.remove());
+                    this.videoTracks.delete(uid);
                     if (u) {
                         u.screen = false;
                     }
@@ -170,6 +175,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
             if (publication.source === Track.Source.ScreenShare) {
                 this.screenProducer = undefined;
+                if (this.room) {
+                    this.videoTracks.delete(this.room.localParticipant.identity);
+                }
                 this.emit("stopProduce", "screen");
             }
         });
@@ -192,6 +200,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.roomId = undefined;
         this.participants.clear();
         this.activeSpeakers.clear();
+        this.videoTracks.clear();
         this.audioProducer = undefined;
         this.screenProducer = undefined;
         this.emit("close");
@@ -200,29 +209,71 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     async startProduce(track: MediaStreamTrack, type: ProduceType) {
         if (!this.room) return;
         if (type === "audio") {
-            const pub = await this.room.localParticipant.setMicrophoneEnabled(
-                true,
-            );
-            this.audioProducer = pub;
-            this.emit("startProduce", "audio");
+            try {
+                const pub = await this.room.localParticipant.setMicrophoneEnabled(
+                    true,
+                );
+                this.audioProducer = pub;
+                this.emit("startProduce", "audio");
+            } catch (err) {
+                console.error("Failed to enable microphone:", err);
+            }
         } else if (type === "screen") {
-            const pub = await this.room.localParticipant.setScreenShareEnabled(
-                true,
-                { audio: true },
-            );
-            this.screenProducer = pub;
-            this.emit("startProduce", "screen");
+            try {
+                let pub;
+                try {
+                    // Try with audio first (supported on Windows / some setups)
+                    pub = await this.room.localParticipant.setScreenShareEnabled(
+                        true,
+                        { audio: true },
+                    );
+                } catch (audioErr) {
+                    console.warn(
+                        "Screen share with audio not supported on this platform, falling back to video only:",
+                        audioErr,
+                    );
+                    pub = await this.room.localParticipant.setScreenShareEnabled(
+                        true,
+                        { audio: false },
+                    );
+                }
+
+                if (pub) {
+                    this.screenProducer = pub;
+                    if (pub.track && this.room) {
+                        this.videoTracks.set(
+                            this.room.localParticipant.identity,
+                            pub.track as any,
+                        );
+                    }
+                    this.emit("startProduce", "screen");
+                }
+            } catch (err) {
+                console.error("Failed to start screen share or cancelled by user:", err);
+                this.screenProducer = undefined;
+            }
         }
     }
 
     async stopProduce(type: ProduceType) {
         if (!this.room) return;
         if (type === "audio") {
-            await this.room.localParticipant.setMicrophoneEnabled(false);
+            try {
+                await this.room.localParticipant.setMicrophoneEnabled(false);
+            } catch (err) {
+                console.warn("Failed to stop microphone:", err);
+            }
             this.audioProducer = undefined;
             this.emit("stopProduce", "audio");
         } else if (type === "screen") {
-            await this.room.localParticipant.setScreenShareEnabled(false);
+            try {
+                await this.room.localParticipant.setScreenShareEnabled(false);
+            } catch (err) {
+                console.warn("Failed to stop screen share:", err);
+            }
+            if (this.room) {
+                this.videoTracks.delete(this.room.localParticipant.identity);
+            }
             this.screenProducer = undefined;
             this.emit("stopProduce", "screen");
         }

@@ -11,7 +11,7 @@ import { observer } from "mobx-react-lite";
 import styled, { css } from "styled-components/macro";
 
 import { Text } from "preact-i18n";
-import { useMemo } from "preact/hooks";
+import { useMemo, useRef, useEffect } from "preact/hooks";
 
 import { Button } from "@revoltchat/ui";
 
@@ -57,7 +57,7 @@ const VoiceBase = styled.div`
     flex-direction: column;
 
     .participants {
-        margin: 40px 20px;
+        margin: 20px 20px;
         justify-content: center;
         user-select: none;
         display: flex;
@@ -77,8 +77,73 @@ const VoiceBase = styled.div`
         display: flex;
         justify-content: center;
         gap: 10px;
+        margin-top: 10px;
     }
 `;
+
+const ScreenShareArea = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 20px;
+    gap: 16px;
+`;
+
+const VideoBox = styled.div`
+    position: relative;
+    max-width: 900px;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #0d0e11;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--primary-background);
+
+    video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .video-label {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        pointer-events: none;
+    }
+`;
+
+function VideoTrackView({ track, label }: { track: any; label: string }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        const el = videoRef.current;
+        if (!el || !track) return;
+        track.attach(el);
+        return () => {
+            if (el) {
+                track.detach(el);
+            }
+        };
+    }, [track]);
+
+    return (
+        <VideoBox>
+            <video ref={videoRef} autoPlay playsInline muted />
+            <div className="video-label">{label}</div>
+        </VideoBox>
+    );
+}
 
 const ParticipantWrapper = styled.div<{ speaking?: boolean }>`
     display: flex;
@@ -119,8 +184,34 @@ export default observer(({ id }: Props) => {
         return allParticipantIds.map((key) => client.users.get(key));
     }, [allParticipantIds, client.users]);
 
+    const activeVideoEntries = useMemo(() => {
+        const entries: { userId: string; track: any; label: string }[] = [];
+        voiceState.videoTracks.forEach((track, userId) => {
+            const u = client.users.get(userId);
+            const name =
+                userId === selfId
+                    ? "Ваш экран"
+                    : u?.username
+                      ? `${u.username}`
+                      : "Экран участника";
+            entries.push({ userId, track, label: name });
+        });
+        return entries;
+    }, [voiceState.videoTracks.size, client.users, selfId]);
+
     return (
         <VoiceBase>
+            {activeVideoEntries.length > 0 && (
+                <ScreenShareArea>
+                    {activeVideoEntries.map((v) => (
+                        <VideoTrackView
+                            key={v.userId}
+                            track={v.track}
+                            label={v.label}
+                        />
+                    ))}
+                </ScreenShareArea>
+            )}
             <div className="participants">
                 {users && users.length !== 0
                     ? users.map((user, index) => {

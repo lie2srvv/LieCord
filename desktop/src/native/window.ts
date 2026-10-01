@@ -194,61 +194,100 @@ export function createMainWindow() {
     }
   });
 
-  // Create display media request handler
+  // Create display media request handler with screen/window picker
   session.defaultSession.setDisplayMediaRequestHandler(
-    (request, callback) => {
-      desktopCapturer
-        .getSources({ types: ["screen", "window"], fetchWindowIcons: true })
-        .then((sources) => {
-          // Shortcut for linux wayland.
-          if (sources.length == 1) {
-            request.audioRequested
-              ? callback({
-                  video: sources[0],
-                  audio: "loopback",
-                })
-              : callback({
-                  video: sources[0],
-                });
-            return;
-          }
-          ipcMain.once(
-            "screenPickerCallback",
-            (_, idx: number, audio: boolean) => {
-              if (idx < 0 || idx > sources.length) {
-                callback({});
-              } else {
-                audio
-                  ? callback({
-                      video: sources[idx],
-                      audio: "loopback",
-                    })
-                  : callback({
-                      video: sources[idx],
-                    });
-              }
-            },
-          );
-          mainWindow.webContents.send(
-            "screenPicker",
-            sources.map((source, idx) => {
-              const image = source.appIcon;
-              if (image) {
-                if (image.getAspectRatio() > 1) {
-                  image.resize({ width: 256 });
-                } else {
-                  image.resize({ height: 256 });
-                }
-              }
-              return {
-                idx: idx,
-                name: source.name,
-                isFullScreen: source.id.startsWith("screen"),
-                image: image?.toDataURL(),
-              };
-            }),
-          );
+    async (request, callback) => {
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ["screen", "window"],
+          fetchWindowIcons: true,
+          thumbnailSize: { width: 150, height: 150 },
         });
+
+        if (!sources || sources.length === 0) {
+          callback({});
+          return;
+        }
+
+        const isWin = process.platform === "win32";
+        const includeAudio = Boolean(isWin && request.audioRequested);
+
+        if (sources.length === 1) {
+          includeAudio
+            ? callback({ video: sources[0], audio: "loopback" })
+            : callback({ video: sources[0] });
+          return;
+        }
+
+        let responded = false;
+        const respond = (source?: (typeof sources)[0]) => {
+          if (responded) return;
+          responded = true;
+          if (!source) {
+            callback({});
+          } else {
+            includeAudio
+              ? callback({ video: source, audio: "loopback" })
+              : callback({ video: source });
+          }
+        };
+
+        // Screen selection menu
+        const menu = new Menu();
+        const screens = sources.filter((s) => s.id.startsWith("screen"));
+        const windows = sources.filter((s) => s.id.startsWith("window"));
+
+        if (screens.length > 0) {
+          menu.append(new MenuItem({ label: "── Экраны ──", enabled: false }));
+          for (const s of screens) {
+            menu.append(
+              new MenuItem({
+                label: `🖥️  ${s.name}`,
+                click: () => respond(s),
+              }),
+            );
+          }
+        }
+
+        if (windows.length > 0) {
+          if (screens.length > 0) menu.append(new MenuItem({ type: "separator" }));
+          menu.append(new MenuItem({ label: "── Окна ──", enabled: false }));
+          for (const s of windows) {
+            const title =
+              s.name.length > 45 ? s.name.substring(0, 42) + "..." : s.name;
+            menu.append(
+              new MenuItem({
+                label: `🪟  ${title}`,
+                icon: s.appIcon
+                  ? s.appIcon.resize({ width: 16, height: 16 })
+                  : undefined,
+                click: () => respond(s),
+              }),
+            );
+          }
+        }
+
+        menu.append(new MenuItem({ type: "separator" }));
+        menu.append(
+          new MenuItem({
+            label: "Отмена",
+            click: () => respond(),
+          }),
+        );
+
+        menu.on("menu-will-close", () => {
+          setTimeout(() => {
+            if (!responded) {
+              respond();
+            }
+          }, 200);
+        });
+
+        menu.popup({ window: mainWindow });
+      } catch (err) {
+        console.error("setDisplayMediaRequestHandler error:", err);
+        callback({});
+      }
     },
     { useSystemPicker: true },
   );
@@ -259,11 +298,6 @@ export function createMainWindow() {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
   );
   ipcMain.on("close", () => mainWindow.close());
-
-  // mainWindow.webContents.openDevTools();
-
-  // let i = 0;
-  // setInterval(() => setBadgeCount((++i % 30) + 1), 1000);
 }
 
 /**

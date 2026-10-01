@@ -26,12 +26,14 @@ class VoiceStateReference {
     roomId: Nullable<string>;
     participants: Map<string, VoiceUser>;
     activeSpeakers: Set<string>;
+    videoTracks: Map<string, any>;
 
     constructor() {
         this.roomId = null;
         this.status = VoiceStatus.UNLOADED;
         this.participants = new Map();
         this.activeSpeakers = new Set();
+        this.videoTracks = new Map();
 
         this.syncState = this.syncState.bind(this);
         this.connect = this.connect.bind(this);
@@ -51,6 +53,8 @@ class VoiceStateReference {
         this.participants.clear();
         this.client.participants.forEach((v, k) => this.participants.set(k, { ...v }));
         this.activeSpeakers = new Set(this.client.activeSpeakers);
+        this.videoTracks.clear();
+        this.client.videoTracks.forEach((v, k) => this.videoTracks.set(k, v));
     }
 
     // This imports and constructs the voice client.
