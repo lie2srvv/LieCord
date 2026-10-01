@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -27,18 +29,14 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import chat.stoat.BuildConfig
 import chat.stoat.R
 import chat.stoat.api.settings.LoadedSettings
-import chat.stoat.composables.generic.AnyLink
-import chat.stoat.composables.generic.Weblink
-import chat.stoat.core.model.data.STOAT_MARKETING
 import chat.stoat.ui.theme.Theme
-import com.chuckerteam.chucker.api.Chucker
 
 @Composable
 fun InitScreen(
@@ -98,24 +96,32 @@ private fun LeadPart(windowSizeClass: WindowSizeClass) {
         if (windowSizeClass.heightSizeClass >= WindowHeightSizeClass.Compact) {
             Spacer(Modifier.height(64.dp))
         }
-        Image(
-            painter = painterResource(R.drawable.stoat_logo_white),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(
-                MaterialTheme.colorScheme.onBackground
-            ),
-            modifier = if (windowSizeClass.widthSizeClass <= WindowWidthSizeClass.Compact)
-                Modifier.fillMaxWidth(0.5f) else Modifier.height(32.dp)
-        )
-        Spacer(modifier = Modifier.height(64.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(R.drawable.liecord_logo),
+                contentDescription = "LieCord",
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                "LieCord",
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Black
+                )
+            )
+        }
+        Spacer(modifier = Modifier.height(32.dp))
         Text(
-            "Find your community", // FIXME hardcoded string
+            stringResource(R.string.login_onboarding_heading),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Stoat is the chat app that’s truly built with you in mind.", // FIXME hardcoded string
+            stringResource(R.string.login_onboarding_body),
             style = MaterialTheme.typography.bodyLarge,
             fontSize = 18.sp,
             textAlign = TextAlign.Center
@@ -125,8 +131,6 @@ private fun LeadPart(windowSizeClass: WindowSizeClass) {
 
 @Composable
 private fun LinkPart(windowSizeClass: WindowSizeClass) {
-    val context = LocalContext.current
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(
@@ -142,40 +146,10 @@ private fun LinkPart(windowSizeClass: WindowSizeClass) {
                 onClick = {/* navController.navigate("login2/existing/details") */ },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Log In") // FIXME hardcoded string
-            }
-            TextButton(
-                onClick = {/* navController.navigate("login2/new/details") */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Sign Up") // FIXME hardcoded string
+                Text(stringResource(R.string.login))
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        Weblink(
-            text = stringResource(R.string.terms_of_service),
-            url = "$STOAT_MARKETING/terms"
-        )
-        Weblink(
-            text = stringResource(R.string.privacy_policy),
-            url = "$STOAT_MARKETING/privacy"
-        )
-        Weblink(
-            text = stringResource(R.string.community_guidelines),
-            url = "$STOAT_MARKETING/aup"
-        )
-
-        if (BuildConfig.DEBUG) {
-            AnyLink(
-                text = "Debug: Chucker",
-                action = {
-                    Chucker.getLaunchIntent(context).apply {
-                        context.startActivity(this)
-                    }
-                }
-            )
-        }
     }
 }

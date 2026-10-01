@@ -287,7 +287,7 @@ class HandlerService : FirebaseMessagingService() {
             .addMessage(body, messageTimestamp, author)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
-            .setSmallIcon(R.drawable.ic_stoat_24dp)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(authorName)
             .setContentText(body)
             .setContentIntent(contentIntent)

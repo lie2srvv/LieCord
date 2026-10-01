@@ -96,6 +96,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="https" />
+                <data android:host="cord.lie2srvv.com" />
                 <data android:host="stoat.chat" />
                 <data android:pathPattern="/channel/.........................." />
                 <data android:pathPattern="/channel/........................../.........................." />
@@ -150,6 +151,7 @@
                 <data android:scheme="http" />
                 <data android:scheme="https" />
 
+                <data android:host="cord.lie2srvv.com" />
                 <data android:host="stoat.chat" />
 
                 <data android:pathPrefix="/invite/" />
