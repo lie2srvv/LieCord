@@ -69,7 +69,7 @@ export default function ErrorBoundary({ children, section }: Props) {
 
     useEffect(() => {
         if (error) {
-            reportError(error, section);
+            
         }
     }, [error]);
 
@@ -101,11 +101,11 @@ export default function ErrorBoundary({ children, section }: Props) {
                 )}
                 <br />
                 <br />
-                <div>Revolt has crashed. Here's the error:</div>
+                <div>LieCord has crashed. Here's the error:</div>
                 <pre>
                     <code>{error?.stack}</code>
                 </pre>
-                <div>This error has been automatically reported.</div>
+                <div></div>
             </CrashContainer>
         );
     }

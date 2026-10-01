@@ -1,7 +1,7 @@
 import { Twitter, Github, Mastodon } from "@styled-icons/boxicons-logos";
 import { observer } from "mobx-react-lite";
 import { Helmet } from "react-helmet";
-import { Link, Route, Switch } from "react-router-dom";
+import { Link, Route, Switch, Redirect } from "react-router-dom";
 
 import styles from "./Login.module.scss";
 import { Text } from "preact-i18n";
@@ -72,11 +72,6 @@ export default observer(() => {
                     </div>
                     {/*<div className={styles.middle}>*/}
                     <div className={styles.form}>
-                        {/*<div style={styles.version}>
-                            API: <code>{configuration?.revolt ?? "???"}</code>{" "}
-                            &middot; revolt.js: <code>{LIBRARY_VERSION}</code>{" "}
-                            &middot; App: <code>{APP_VERSION}</code>
-                        </div>*/}
                         <Switch>
                             <Route path="/login/create">
                                 <Redirect to="/login" />
