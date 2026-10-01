@@ -16,11 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Configure npm
-        working-directory: desktop
-        run: npm config set allow-git all
+          node-version: 22
 
       - name: Install dependencies
         working-directory: desktop
