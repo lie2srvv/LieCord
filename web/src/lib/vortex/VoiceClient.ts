@@ -67,17 +67,19 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         room.on(RoomEvent.Connected, () => {
             this.emit("ready");
-            room.localParticipant
-                .setMicrophoneEnabled(true)
-                .then((pub) => {
-                    if (pub) {
-                        this.audioProducer = pub;
-                        this.emit("startProduce", "audio");
-                    }
-                })
-                .catch((err) => {
-                    console.warn("Could not auto-enable microphone:", err);
-                });
+            if (!this.isDeaf) {
+                room.localParticipant
+                    .setMicrophoneEnabled(true)
+                    .then((pub) => {
+                        if (pub) {
+                            this.audioProducer = pub;
+                            this.emit("startProduce", "audio");
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn("Could not auto-enable microphone:", err);
+                    });
+            }
         });
 
         room.on(RoomEvent.Disconnected, () => {
@@ -172,6 +174,30 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             },
         );
 
+        room.on(RoomEvent.TrackMuted, (publication, participant) => {
+            const uid = participant.identity;
+            const u = this.participants.get(uid);
+            if (publication.kind === Track.Kind.Audio) {
+                if (u) u.audio = false;
+                this.emit("userStopProduce", uid, "audio");
+            } else if (publication.kind === Track.Kind.Video) {
+                if (u) u.screen = false;
+                this.emit("userStopProduce", uid, "screen");
+            }
+        });
+
+        room.on(RoomEvent.TrackUnmuted, (publication, participant) => {
+            const uid = participant.identity;
+            const u = this.participants.get(uid);
+            if (publication.kind === Track.Kind.Audio) {
+                if (u) u.audio = true;
+                this.emit("userStartProduce", uid, "audio");
+            } else if (publication.kind === Track.Kind.Video) {
+                if (u) u.screen = true;
+                this.emit("userStartProduce", uid, "screen");
+            }
+        });
+
         room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
             if (publication.source === Track.Source.ScreenShare) {
                 this.screenProducer = undefined;
@@ -203,7 +229,19 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.videoTracks.clear();
         this.audioProducer = undefined;
         this.screenProducer = undefined;
+        this.isDeaf = false;
         this.emit("close");
+    }
+
+    setDeaf(deaf: boolean) {
+        this.isDeaf = deaf;
+        document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
+            const audioEl = el as HTMLAudioElement;
+            audioEl.muted = deaf;
+            if (!deaf) {
+                audioEl.play().catch(() => {});
+            }
+        });
     }
 
     async startProduce(track: MediaStreamTrack, type: ProduceType) {

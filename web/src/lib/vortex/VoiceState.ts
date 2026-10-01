@@ -22,11 +22,18 @@ class VoiceStateReference {
     client?: VoiceClient;
     connecting?: boolean;
 
-    status: VoiceStatus;
-    roomId: Nullable<string>;
-    participants: Map<string, VoiceUser>;
-    activeSpeakers: Set<string>;
-    videoTracks: Map<string, any>;
+    status: VoiceStatus = VoiceStatus.UNLOADED;
+    roomId: Nullable<string> = null;
+    participants: Map<string, VoiceUser> = new Map();
+    activeSpeakers: Set<string> = new Set();
+    videoTracks: Map<string, any> = new Map();
+
+    // Observable states tracked by MobX
+    isMuted: boolean = false;
+    isDeafened: boolean = false;
+    audioProducing: boolean = false;
+    screenProducing: boolean = false;
+    wasMutedBeforeDeafen: boolean = false;
 
     constructor() {
         this.roomId = null;
@@ -38,6 +45,8 @@ class VoiceStateReference {
         this.syncState = this.syncState.bind(this);
         this.connect = this.connect.bind(this);
         this.disconnect = this.disconnect.bind(this);
+        this.toggleMic = this.toggleMic.bind(this);
+        this.toggleDeafen = this.toggleDeafen.bind(this);
 
         makeAutoObservable(this, {
             client: false,
@@ -55,6 +64,14 @@ class VoiceStateReference {
         this.activeSpeakers = new Set(this.client.activeSpeakers);
         this.videoTracks.clear();
         this.client.videoTracks.forEach((v, k) => this.videoTracks.set(k, v));
+
+        this.audioProducing = this.client.audioProducer !== undefined;
+        this.screenProducing = this.client.screenProducer !== undefined;
+        this.isDeafened = this.client.isDeaf;
+
+        if (this.roomId) {
+            this.isMuted = !this.audioProducing;
+        }
     }
 
     // This imports and constructs the voice client.
@@ -98,14 +115,12 @@ class VoiceStateReference {
         this.status = VoiceStatus.CONNECTING;
 
         try {
-            const call = await (channel as any).client.api.post(
-                `/channels/${channel._id}/join_call`,
-                { node: "worldwide" },
-            );
+            const call = await channel.joinCall();
 
-            runInAction(() => {
-                this.status = VoiceStatus.RTC_CONNECTING;
-            });
+            if (this.status !== VoiceStatus.CONNECTING) return;
+
+            // Pass deafen state before connect so it doesn't auto-produce mic
+            this.client.isDeaf = this.isDeafened;
 
             await this.client.connect(call.url, channel._id, call.token);
 
@@ -113,8 +128,17 @@ class VoiceStateReference {
                 this.status = VoiceStatus.CONNECTED;
                 this.connecting = false;
                 this.roomId = channel._id;
+                this.audioProducing = this.client?.audioProducer !== undefined;
+                this.screenProducing = this.client?.screenProducer !== undefined;
             });
             this.syncState();
+
+            if (this.isDeafened) {
+                this.client.setDeaf(true);
+                await this.client.stopProduce("audio");
+            } else if (this.isMuted) {
+                await this.client.stopProduce("audio");
+            }
         } catch (err) {
             console.error("Failed to join voice call:", err);
 
@@ -134,17 +158,22 @@ class VoiceStateReference {
         this.connecting = false;
         this.status = VoiceStatus.READY;
         this.roomId = null;
+        this.audioProducing = false;
+        this.screenProducing = false;
+        this.isDeafened = false;
+        this.isMuted = false;
+        this.wasMutedBeforeDeafen = false;
 
         this.client?.disconnect();
         this.syncState();
     }
 
-    isProducing(type: ProduceType) {
+    isProducing(type: ProduceType): boolean {
         switch (type) {
             case "audio":
-                return this.client?.audioProducer !== undefined;
+                return this.roomId ? this.audioProducing : !this.isMuted;
             case "screen":
-                return this.client?.screenProducer !== undefined;
+                return this.screenProducing;
         }
     }
 
@@ -152,47 +181,102 @@ class VoiceStateReference {
         return this.activeSpeakers.has(userId);
     }
 
-    isDeaf() {
-        if (!this.client) return false;
-        return this.client.isDeaf;
+    isDeaf(): boolean {
+        return this.isDeafened;
     }
 
-    async startDeafen() {
-        if (!this.client) return;
-        this.client.isDeaf = true;
-        document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
-            (el as HTMLAudioElement).muted = true;
-        });
-        this.syncState();
+    @action async toggleDeafen() {
+        if (this.isDeafened) {
+            await this.stopDeafen();
+        } else {
+            await this.startDeafen();
+        }
     }
 
-    async stopDeafen() {
-        if (!this.client) return;
-        this.client.isDeaf = false;
-        document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
-            (el as HTMLAudioElement).muted = false;
-        });
-        this.syncState();
-    }
+    @action async startDeafen() {
+        this.isDeafened = true;
+        this.wasMutedBeforeDeafen = this.isMuted;
+        this.isMuted = true;
 
-    async startProducing(type: ProduceType) {
-        switch (type) {
-            case "audio": {
-                if (this.client?.audioProducer !== undefined) return;
-                await this.client?.startProduce({} as any, "audio");
-                break;
-            }
-            case "screen": {
-                if (this.client?.screenProducer !== undefined) return;
-                await this.client?.startProduce({} as any, "screen");
-                break;
+        if (this.client) {
+            this.client.setDeaf(true);
+            if (this.roomId) {
+                await this.client.stopProduce("audio");
             }
         }
         this.syncState();
     }
 
-    async stopProducing(type: ProduceType) {
-        await this.client?.stopProduce(type);
+    @action async stopDeafen() {
+        this.isDeafened = false;
+
+        if (this.client) {
+            this.client.setDeaf(false);
+        }
+
+        // Only unmute mic if user wasn't muted before deafening
+        if (!this.wasMutedBeforeDeafen) {
+            this.isMuted = false;
+            if (this.client && this.roomId) {
+                await this.client.startProduce({} as any, "audio");
+            }
+        }
+        this.syncState();
+    }
+
+    @action async toggleMic() {
+        if (this.isMuted) {
+            // Unmuting mic
+            this.isMuted = false;
+            if (this.isDeafened) {
+                this.isDeafened = false;
+                if (this.client) {
+                    this.client.setDeaf(false);
+                }
+            }
+            if (this.client && this.roomId) {
+                await this.client.startProduce({} as any, "audio");
+            }
+        } else {
+            // Muting mic
+            this.isMuted = true;
+            if (this.client && this.roomId) {
+                await this.client.stopProduce("audio");
+            }
+        }
+        this.syncState();
+    }
+
+    @action async startProducing(type: ProduceType) {
+        if (type === "audio") {
+            this.isMuted = false;
+            if (this.isDeafened) {
+                this.isDeafened = false;
+                if (this.client) {
+                    this.client.setDeaf(false);
+                }
+            }
+            if (this.client && this.roomId) {
+                if (this.client.audioProducer === undefined) {
+                    await this.client.startProduce({} as any, "audio");
+                }
+            }
+        } else if (type === "screen") {
+            if (this.client?.screenProducer !== undefined) return;
+            await this.client?.startProduce({} as any, "screen");
+        }
+        this.syncState();
+    }
+
+    @action async stopProducing(type: ProduceType) {
+        if (type === "audio") {
+            this.isMuted = true;
+            if (this.client && this.roomId) {
+                await this.client.stopProduce("audio");
+            }
+        } else {
+            await this.client?.stopProduce(type);
+        }
         this.syncState();
     }
 }
