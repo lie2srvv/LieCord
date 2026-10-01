@@ -1,0 +1,20 @@
+{
+  "colors": {
+    "background": "#151313",
+    "surface": "#1D1B1B",
+    "surface_secondary": "#211F1F",
+    "primary": "#F5DCDF",
+    "accent": "#D8C0C3",
+    "text_primary": "#E7E1E1",
+    "text_secondary": "#D1C3C4",
+    "border": "#4E4446"
+  },
+  "radii": {
+    "small": "8px",
+    "medium": "16px",
+    "large": "24px"
+  },
+  "fonts": {
+    "main": "Roboto, sans-serif"
+  }
+}

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=LieCord
+Comment=LieCord - communication platform
+Exec=liecord-desktop
+Terminal=false
+Type=Application
+Icon=com.lie2srvv.LieCord
+Categories=Network;InstantMessaging
+StartupWMClass=liecord-desktop
+X-Desktop-File-Install-Version=0.26
+X-Flatpak=com.lie2srvv.LieCord

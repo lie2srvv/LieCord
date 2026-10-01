@@ -1,0 +1,32 @@
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Web build
+web/dist/
+web/node_modules/
+
+# Desktop build
+desktop/node_modules/
+desktop/out/
+desktop/.vite/
+
+# Android build
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/app/*.iml
+
+# Environment & Temp
+.env
+*.log
+*.pyc
+__pycache__/
+.DS_Store

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!-- Up to Android 10, we need the following to take photos from the camera. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29"
+        tools:ignore="ScopedStorage" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:name=".StoatApplication"
+        android:theme="@style/Theme.Stoat"
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="tiramisu">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <meta-data
+            android:name="io.sentry.auto-init"
+            android:value="false" />
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_monochrome" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/primary" />
+
+        <service
+            android:name=".c2dm.HandlerService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".services.OngoingCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone" />
+
+        <receiver
+            android:name=".c2dm.ReplyReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".c2dm.MarkAsReadReceiver"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|colorMode"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Stoat">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="stoat.chat" />
+                <data android:pathPattern="/channel/.........................." />
+                <data android:pathPattern="/channel/........................../.........................." />
+                <data android:pathPattern="/server/.........................." />
+                <data android:pathPattern="/server/........................../channel/.........................." />
+                <data android:pathPattern="/server/........................../channel/........................../.........................." />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".activities.InviteActivity"
+            android:theme="@style/Theme.Stoat"
+            android:exported="true">
+            <!-- Revolt invite links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="app.revolt.chat" />
+
+                <data android:pathPrefix="/invite/" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="rvlt.gg" />
+
+                <uri-relative-filter-group
+                    android:allow="false"
+                    tools:targetApi="35">
+                    <data android:pathPrefix="/discover/" />
+                </uri-relative-filter-group>
+            </intent-filter>
+            <!-- Stoat invite links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="stoat.chat" />
+
+                <data android:pathPrefix="/invite/" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="stt.gg" />
+
+                <uri-relative-filter-group
+                    android:allow="false"
+                    tools:targetApi="35">
+                    <data android:pathPrefix="/discover/" />
+                </uri-relative-filter-group>
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".activities.ShareTargetActivity"
+            android:theme="@style/Theme.Stoat"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".activities.media.ImageViewActivity"
+            android:theme="@style/Theme.Stoat" />
+
+        <activity
+            android:name=".activities.media.VideoViewActivity"
+            android:configChanges="orientation|screenSize"
+            android:theme="@style/Theme.Stoat" />
+
+        <activity
+            android:name=".activities.voice.IncomingActivity"
+            android:configChanges="orientation|screenSize"
+            android:theme="@style/Theme.Stoat" />
+
+        <!-- Backport photo picker via Google Play Services -->
+        <service
+            android:name="com.google.android.gms.metadata.ModuleDependencies"
+            android:enabled="false"
+            android:exported="false"
+            tools:ignore="MissingClass">
+            <intent-filter>
+                <action android:name="com.google.android.gms.metadata.MODULE_DEPENDENCIES" />
+            </intent-filter>
+            <meta-data
+                android:name="photopicker_activity:0:required"
+                android:value="" />
+        </service>
+
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
+    </application>
+
+</manifest>

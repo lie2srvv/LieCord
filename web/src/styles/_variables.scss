@@ -1,0 +1,48 @@
+:root {
+    /**
+     * Appearance & Typography (LieVPN Tokens)
+     */
+    --ligatures: none;
+    --text-size: 14px;
+    --font: "Roboto", sans-serif;
+    --sidebar-active: var(--secondary-background);
+
+    /**
+     * Native
+     */
+    --titlebar-height: 29px;
+    --titlebar-action-padding: 8px;
+    --titlebar-logo-color: var(--secondary-foreground);
+
+    /**
+     * Layout & Radii (LieVPN Tokens)
+     */
+    --app-height: 100vh;
+    --scrollbar-thickness: 3px;
+    --scrollbar-thickness-ff: thin;
+
+    --border-radius-small: 8px;
+    --border-radius-medium: 16px;
+    --border-radius-large: 24px;
+
+    /* Base tokens mapped to component roles */
+    --border-radius: 16px;
+    --border-radius-half: 50%;
+    --border-radius-button: 16px;
+    --border-radius-modal: 24px;
+    --border-radius-user-icon: 16px;
+    --border-radius-channel-icon: 16px;
+    --border-radius-server-icon: 16px;
+
+    --input-border-width: 2px;
+    --textarea-padding: 16px;
+    --textarea-line-height: 20px;
+    --message-box-padding: 14px 14px 14px 0;
+
+    --attachment-max-width: 400px;
+    --attachment-max-height: 300px;
+    --attachment-default-width: 400px;
+    --attachment-max-text-width: 800px;
+
+    --bottom-navigation-height: 50px;
+}

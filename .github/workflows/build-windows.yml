@@ -1,0 +1,40 @@
+name: Build LieCord Desktop for Windows
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure npm
+        working-directory: desktop
+        run: npm config set allow-git all
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Build Windows Installer (MakerSquirrel & ZIP)
+        working-directory: desktop
+        run: npm run make -- --platform win32
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LieCord-Windows-x64
+          path: |
+            desktop/out/make/**/*.exe
+            desktop/out/make/**/*.zip
+            desktop/out/make/**/*.nupkg
