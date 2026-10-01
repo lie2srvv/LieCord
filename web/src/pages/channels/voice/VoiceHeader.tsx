@@ -6,8 +6,9 @@ import {
     VolumeFull,
     VolumeMute,
 } from "@styled-icons/boxicons-solid";
+import { Desktop } from "@styled-icons/boxicons-regular";
 import { observer } from "mobx-react-lite";
-import styled from "styled-components/macro";
+import styled, { css } from "styled-components/macro";
 
 import { Text } from "preact-i18n";
 import { useMemo } from "preact/hooks";
@@ -61,7 +62,7 @@ const VoiceBase = styled.div`
         user-select: none;
         display: flex;
         flex-flow: row wrap;
-        gap: 16px;
+        gap: 20px;
 
         div:hover img {
             opacity: 0.8;
@@ -79,40 +80,75 @@ const VoiceBase = styled.div`
     }
 `;
 
+const ParticipantWrapper = styled.div<{ speaking?: boolean }>`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    border-radius: 50%;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+    ${(props) =>
+        props.speaking &&
+        css`
+            box-shadow: 0 0 0 3px #57f287, 0 0 12px rgba(87, 242, 135, 0.6);
+            transform: scale(1.03);
+        `}
+`;
+
 export default observer(({ id }: Props) => {
     if (voiceState.roomId !== id) return null;
 
     const client = useClient();
-    const self = client.users.get(client.user!._id);
+    const selfId = client.user?._id;
+    const self = selfId ? client.users.get(selfId) : undefined;
 
-    const keys = Array.from(voiceState.participants.keys());
+    // Collect all participant IDs in the call, ensuring local user (self) is always included
+    const allParticipantIds = useMemo(() => {
+        const idSet = new Set<string>();
+        if (selfId) {
+            idSet.add(selfId);
+        }
+        for (const k of voiceState.participants.keys()) {
+            idSet.add(k);
+        }
+        return Array.from(idSet);
+    }, [selfId, voiceState.participants.size]);
+
     const users = useMemo(() => {
-        return keys.map((key) => client.users.get(key));
-        // eslint-disable-next-line
-    }, [keys]);
+        return allParticipantIds.map((key) => client.users.get(key));
+    }, [allParticipantIds, client.users]);
 
     return (
         <VoiceBase>
             <div className="participants">
                 {users && users.length !== 0
                     ? users.map((user, index) => {
-                          const user_id = keys![index];
+                          const user_id = allParticipantIds[index];
+                          const isSelf = user_id === selfId;
+                          const isSpeaking = voiceState.isSpeaking(user_id);
+
+                          let voiceStatus: "muted" | "deaf" | undefined;
+                          if (isSelf) {
+                              if (voiceState.isDeaf()) {
+                                  voiceStatus = "deaf";
+                              } else if (!voiceState.isProducing("audio")) {
+                                  voiceStatus = "muted";
+                              }
+                          } else {
+                              const pInfo = voiceState.participants.get(user_id);
+                              voiceStatus = pInfo?.audio ? undefined : "muted";
+                          }
+
                           return (
-                              <div key={user_id}>
+                              <ParticipantWrapper
+                                  key={user_id}
+                                  speaking={isSpeaking}>
                                   <UserIcon
                                       size={80}
-                                      target={user}
+                                      target={user ?? (isSelf ? self : undefined)}
                                       status={false}
-                                      voice={
-                                          client.user?._id === user_id &&
-                                          voiceState.isDeaf()
-                                              ? "deaf"
-                                              : voiceState.participants!.get(
-                                                    user_id,
-                                                )?.audio
-                                              ? undefined
-                                              : "muted"
-                                      }
+                                      voice={voiceStatus}
                                       onClick={() =>
                                           modalController.push({
                                               type: "user_profile",
@@ -120,7 +156,7 @@ export default observer(({ id }: Props) => {
                                           })
                                       }
                                   />
-                              </div>
+                              </ParticipantWrapper>
                           );
                       })
                     : self !== undefined && (
@@ -170,6 +206,22 @@ export default observer(({ id }: Props) => {
                     <Tooltip content={"Deafen"} placement={"top"}>
                         <Button onClick={() => voiceState.startDeafen()}>
                             <VolumeFull width={20} />
+                        </Button>
+                    </Tooltip>
+                )}
+                {voiceState.isProducing("screen") ? (
+                    <Tooltip content={"Stop screen share"} placement={"top"}>
+                        <Button
+                            palette="accent"
+                            onClick={() => voiceState.stopProducing("screen")}>
+                            <Desktop width={20} />
+                        </Button>
+                    </Tooltip>
+                ) : (
+                    <Tooltip content={"Share screen"} placement={"top"}>
+                        <Button
+                            onClick={() => voiceState.startProducing("screen")}>
+                            <Desktop width={20} />
                         </Button>
                     </Tooltip>
                 )}

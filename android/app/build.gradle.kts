@@ -95,8 +95,8 @@ android {
         debug {
             isPseudoLocalesEnabled = true
 
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "+debug"
+            // applicationIdSuffix = ".debug"
+            // versionNameSuffix = "+debug"
             resValue(
                 "string",
                 "app_name",

@@ -17,9 +17,7 @@ export enum VoiceStatus {
     // RECONNECTING
 }
 
-// This is an example of how to implement MobX state.
-// * Note for better implementation:
-// * MobX state should be implemented on the VoiceClient itself.
+// MobX state wrapper around VoiceClient
 class VoiceStateReference {
     client?: VoiceClient;
     connecting?: boolean;
@@ -27,11 +25,13 @@ class VoiceStateReference {
     status: VoiceStatus;
     roomId: Nullable<string>;
     participants: Map<string, VoiceUser>;
+    activeSpeakers: Set<string>;
 
     constructor() {
         this.roomId = null;
         this.status = VoiceStatus.UNLOADED;
         this.participants = new Map();
+        this.activeSpeakers = new Set();
 
         this.syncState = this.syncState.bind(this);
         this.connect = this.connect.bind(this);
@@ -49,7 +49,8 @@ class VoiceStateReference {
         if (!this.client) return;
         this.roomId = toNullable(this.client.roomId);
         this.participants.clear();
-        this.client.participants.forEach((v, k) => this.participants.set(k, v));
+        this.client.participants.forEach((v, k) => this.participants.set(k, { ...v }));
+        this.activeSpeakers = new Set(this.client.activeSpeakers);
     }
 
     // This imports and constructs the voice client.
@@ -67,6 +68,7 @@ class VoiceStateReference {
             client.on("userLeft", this.syncState);
             client.on("userStartProduce", this.syncState);
             client.on("userStopProduce", this.syncState);
+            client.on("activeSpeakersChanged", this.syncState);
 
             runInAction(() => {
                 if (!client.supported()) {
@@ -137,7 +139,13 @@ class VoiceStateReference {
         switch (type) {
             case "audio":
                 return this.client?.audioProducer !== undefined;
+            case "screen":
+                return this.client?.screenProducer !== undefined;
         }
+    }
+
+    isSpeaking(userId: string): boolean {
+        return this.activeSpeakers.has(userId);
     }
 
     isDeaf() {
@@ -168,6 +176,12 @@ class VoiceStateReference {
             case "audio": {
                 if (this.client?.audioProducer !== undefined) return;
                 await this.client?.startProduce({} as any, "audio");
+                break;
+            }
+            case "screen": {
+                if (this.client?.screenProducer !== undefined) return;
+                await this.client?.startProduce({} as any, "screen");
+                break;
             }
         }
         this.syncState();

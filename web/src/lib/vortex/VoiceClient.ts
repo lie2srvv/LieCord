@@ -6,6 +6,7 @@ import {
     RemoteParticipant,
     RemoteTrackPublication,
     RemoteTrack,
+    Participant,
 } from "livekit-client";
 import { ProduceType, VoiceUser } from "./Types";
 
@@ -22,15 +23,19 @@ interface VoiceEvents {
 
     userStartProduce: (userId: string, type: ProduceType) => void;
     userStopProduce: (userId: string, type: ProduceType) => void;
+
+    activeSpeakersChanged: (speakers: string[]) => void;
 }
 
 export default class VoiceClient extends EventEmitter<VoiceEvents> {
-    private room?: Room;
+    public room?: Room;
     public roomId?: string;
     public isDeaf: boolean = false;
     public participants: Map<string, VoiceUser> = new Map();
     public consumers: Map<string, any> = new Map();
     public audioProducer?: any;
+    public screenProducer?: any;
+    public activeSpeakers: Set<string> = new Set();
 
     supported(): boolean {
         return (
@@ -46,6 +51,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         this.roomId = roomId;
         this.participants.clear();
+        this.activeSpeakers.clear();
 
         const room = new Room({
             audioCaptureDefaults: {
@@ -78,14 +84,32 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         room.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
             const uid = p.identity;
-            this.participants.set(uid, { audio: false });
+            this.participants.set(uid, {
+                audio: p.isMicrophoneEnabled,
+                screen: p.isScreenShareEnabled,
+                speaking: false,
+            });
             this.emit("userJoined", uid);
         });
 
         room.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
             const uid = p.identity;
             this.participants.delete(uid);
+            this.activeSpeakers.delete(uid);
             this.emit("userLeft", uid);
+        });
+
+        room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+            this.activeSpeakers.clear();
+            for (const s of speakers) {
+                if (s.identity) {
+                    this.activeSpeakers.add(s.identity);
+                }
+            }
+            this.emit(
+                "activeSpeakersChanged",
+                Array.from(this.activeSpeakers),
+            );
         });
 
         room.on(
@@ -95,22 +119,24 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 publication: RemoteTrackPublication,
                 participant: RemoteParticipant,
             ) => {
+                const uid = participant.identity;
+                const u = this.participants.get(uid) || {};
+
                 if (track.kind === Track.Kind.Audio) {
                     const el = track.attach();
-                    el.id = `audio-${participant.identity}`;
+                    el.id = `audio-${uid}-${track.sid}`;
                     if (this.isDeaf) {
                         el.muted = true;
                     }
                     document.body.appendChild(el);
 
-                    const u = this.participants.get(participant.identity) || {};
                     u.audio = true;
-                    this.participants.set(participant.identity, u);
-                    this.emit(
-                        "userStartProduce",
-                        participant.identity,
-                        "audio",
-                    );
+                    this.participants.set(uid, u);
+                    this.emit("userStartProduce", uid, "audio");
+                } else if (track.kind === Track.Kind.Video) {
+                    u.screen = true;
+                    this.participants.set(uid, u);
+                    this.emit("userStartProduce", uid, "screen");
                 }
             },
         );
@@ -122,20 +148,31 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 publication: RemoteTrackPublication,
                 participant: RemoteParticipant,
             ) => {
+                const uid = participant.identity;
+                const u = this.participants.get(uid);
+
                 if (track.kind === Track.Kind.Audio) {
                     track.detach().forEach((el) => el.remove());
-                    const u = this.participants.get(participant.identity);
                     if (u) {
                         u.audio = false;
                     }
-                    this.emit(
-                        "userStopProduce",
-                        participant.identity,
-                        "audio",
-                    );
+                    this.emit("userStopProduce", uid, "audio");
+                } else if (track.kind === Track.Kind.Video) {
+                    track.detach().forEach((el) => el.remove());
+                    if (u) {
+                        u.screen = false;
+                    }
+                    this.emit("userStopProduce", uid, "screen");
                 }
             },
         );
+
+        room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+            if (publication.source === Track.Source.ScreenShare) {
+                this.screenProducer = undefined;
+                this.emit("stopProduce", "screen");
+            }
+        });
 
         await room.connect(url, token);
     }
@@ -149,27 +186,45 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
             el.remove();
         });
+        document.querySelectorAll("video[id^='video-screen-']").forEach((el) => {
+            el.remove();
+        });
         this.roomId = undefined;
         this.participants.clear();
+        this.activeSpeakers.clear();
         this.audioProducer = undefined;
+        this.screenProducer = undefined;
         this.emit("close");
     }
 
     async startProduce(track: MediaStreamTrack, type: ProduceType) {
-        if (this.room && type === "audio") {
+        if (!this.room) return;
+        if (type === "audio") {
             const pub = await this.room.localParticipant.setMicrophoneEnabled(
                 true,
             );
             this.audioProducer = pub;
             this.emit("startProduce", "audio");
+        } else if (type === "screen") {
+            const pub = await this.room.localParticipant.setScreenShareEnabled(
+                true,
+                { audio: true },
+            );
+            this.screenProducer = pub;
+            this.emit("startProduce", "screen");
         }
     }
 
     async stopProduce(type: ProduceType) {
-        if (this.room && type === "audio") {
+        if (!this.room) return;
+        if (type === "audio") {
             await this.room.localParticipant.setMicrophoneEnabled(false);
             this.audioProducer = undefined;
             this.emit("stopProduce", "audio");
+        } else if (type === "screen") {
+            await this.room.localParticipant.setScreenShareEnabled(false);
+            this.screenProducer = undefined;
+            this.emit("stopProduce", "screen");
         }
     }
 }
