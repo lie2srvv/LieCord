@@ -22,12 +22,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create stoatbuild.properties
+      - name: Create stoatbuild.properties and google-services.json
         run: |
           echo "sentry.dsn=" > android/stoatbuild.properties
           echo "sentry.upload_mappings=false" >> android/stoatbuild.properties
           echo "build.debug.app_name=LieCord" >> android/stoatbuild.properties
           echo "build.flavour_id=LIECORD" >> android/stoatbuild.properties
+          sed -e 's/chat\.revolt\.debug/com.lie2srvv.liecord.debug/g' \
+              -e 's/chat\.revolt/com.lie2srvv.liecord/g' \
+              android/app/google-services.json.example > android/app/google-services.json
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
