@@ -1,7 +1,7 @@
 import { action, makeAutoObservable, ObservableMap, runInAction } from "mobx";
 import { Channel, Nullable, toNullable } from "revolt.js";
 
-import inboundSound from "../../assets/sounds/inbound.mp3";
+import messageSound from "../../assets/sounds/message.mp3";
 import type { ProduceType, VoiceUser } from "./Types";
 import type VoiceClient from "./VoiceClient";
 import type { ScreenShareOptions } from "./VoiceClient";
@@ -51,6 +51,7 @@ class VoiceStateReference {
     incomingCall: { channelId: string; callerId: string; callerName: string } | null = null;
     private ringtoneAudio?: HTMLAudioElement;
     private incomingCallTimer?: any;
+    private ringtoneInterval?: any;
 
     constructor() {
         this.roomId = null;
@@ -70,6 +71,7 @@ class VoiceStateReference {
             connecting: false,
             ringtoneAudio: false,
             incomingCallTimer: false,
+            ringtoneInterval: false,
         });
     }
 
@@ -86,18 +88,29 @@ class VoiceStateReference {
         if (this.incomingCall?.channelId === channelId) return;
         this.incomingCall = { channelId, callerId, callerName };
 
-        try {
-            if (!this.ringtoneAudio) {
-                this.ringtoneAudio = new Audio(inboundSound);
-                this.ringtoneAudio.loop = true;
-            }
-            this.ringtoneAudio.currentTime = 0;
-            this.ringtoneAudio.play().catch((e) =>
-                console.log("Incoming call ringtone autoplay prevented:", e)
-            );
-        } catch (e) {
-            console.error("Failed to play incoming call ringtone:", e);
+        if (!this.ringtoneAudio) {
+            this.ringtoneAudio = new Audio(messageSound);
+            this.ringtoneAudio.volume = 0.8;
         }
+
+        const playPing = () => {
+            if (!this.incomingCall || !this.ringtoneAudio) return;
+            try {
+                this.ringtoneAudio.currentTime = 0;
+                this.ringtoneAudio.play().catch((e) =>
+                    console.log("Incoming call ringtone autoplay prevented:", e)
+                );
+            } catch (e) {
+                console.error("Failed to play ping:", e);
+            }
+        };
+
+        // Play initial chime immediately
+        playPing();
+
+        // Repeat pleasant notification chime periodically with nice cooldown (~2.5s)
+        if (this.ringtoneInterval) clearInterval(this.ringtoneInterval);
+        this.ringtoneInterval = setInterval(playPing, 2500);
 
         if (this.incomingCallTimer) clearTimeout(this.incomingCallTimer);
         this.incomingCallTimer = setTimeout(() => {
@@ -109,6 +122,10 @@ class VoiceStateReference {
         if (this.incomingCallTimer) {
             clearTimeout(this.incomingCallTimer);
             this.incomingCallTimer = undefined;
+        }
+        if (this.ringtoneInterval) {
+            clearInterval(this.ringtoneInterval);
+            this.ringtoneInterval = undefined;
         }
         this.incomingCall = null;
         if (this.ringtoneAudio) {

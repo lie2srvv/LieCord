@@ -30,7 +30,7 @@ const BannerBase = styled.div`
     justify-content: space-between;
     gap: 16px;
     padding: 12px 18px;
-    margin: 12px 16px;
+    margin: calc(var(--header-height) + 12px) 16px 12px 16px;
     border-radius: 8px;
     background: linear-gradient(
         90deg,
