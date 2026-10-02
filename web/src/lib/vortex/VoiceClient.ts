@@ -8,6 +8,8 @@ import {
     RemoteTrack,
     Participant,
     ScreenShareCaptureOptions,
+    TrackProcessor,
+    AudioProcessorOptions,
 } from "livekit-client";
 import { ProduceType, VoiceUser } from "./Types";
 
@@ -33,6 +35,144 @@ export interface ScreenShareOptions {
     audio?: boolean;
 }
 
+export const DEFAULT_AUDIO_CAPTURE_OPTIONS = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    voiceIsolation: true,
+    googEchoCancellation: true,
+    googAutoGainControl: true,
+    googNoiseSuppression: true,
+    googHighpassFilter: true,
+    googTypingNoiseDetection: true,
+    googAudioMirroring: false,
+};
+
+/**
+ * Lightweight noise gate and acoustic filter for voice chat.
+ * - Filters low-frequency vibrations, keyboard thumps, and desk rumble (<85Hz).
+ * - Measures pre-gain RMS signal volume in real-time.
+ * - When volume is below threshold (-43dB), smoothly mutes audio to eliminate distant keystrokes,
+ *   mouse clicks, breathing, and background music when the user isn't talking.
+ * - When speech is detected, opens instantly (10-15ms attack) and holds for 350ms to keep word endings natural.
+ */
+class NoiseGateProcessor
+    implements TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>
+{
+    name = "liecord-noise-gate";
+    processedTrack?: MediaStreamTrack;
+    private audioContext?: AudioContext;
+    private sourceNode?: MediaStreamAudioSourceNode;
+    private filterNode?: BiquadFilterNode;
+    private gainNode?: GainNode;
+    private scriptProcessor?: ScriptProcessorNode;
+    private dummyGain?: GainNode;
+    private destNode?: MediaStreamAudioDestinationNode;
+    private lastSpokeTime: number = 0;
+    private isOpen: boolean = false;
+
+    async init(opts: AudioProcessorOptions): Promise<void> {
+        this.audioContext = opts.audioContext;
+        if (this.audioContext.state === "suspended") {
+            await this.audioContext.resume().catch(() => {});
+        }
+
+        const stream = new MediaStream([opts.track]);
+        this.sourceNode = this.audioContext.createMediaStreamSource(stream);
+
+        // Highpass filter: eliminates low rumble, keyboard bottoming-out thumps & distant bass
+        this.filterNode = this.audioContext.createBiquadFilter();
+        this.filterNode.type = "highpass";
+        this.filterNode.frequency.value = 85;
+        this.filterNode.Q.value = 0.7;
+
+        // Smooth gain node for gating
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.value = 1.0;
+
+        this.destNode = this.audioContext.createMediaStreamDestination();
+
+        // Main audio chain: source -> filter -> gain -> destination
+        this.sourceNode.connect(this.filterNode);
+        this.filterNode.connect(this.gainNode);
+        this.gainNode.connect(this.destNode);
+
+        // Continuous RMS level detection without background tab throttling
+        this.scriptProcessor = this.audioContext.createScriptProcessor(
+            1024,
+            1,
+            1,
+        );
+        this.dummyGain = this.audioContext.createGain();
+        this.dummyGain.gain.value = 0;
+
+        this.filterNode.connect(this.scriptProcessor);
+        this.scriptProcessor.connect(this.dummyGain);
+        this.dummyGain.connect(this.audioContext.destination);
+
+        const thresholdDb = -43; // Sensitive enough for normal/quiet speech, silences keys and music
+        const holdMs = 350; // Hold time between words
+
+        this.scriptProcessor.onaudioprocess = (e: any) => {
+            if (!this.gainNode || !this.audioContext) return;
+            const input = e.inputBuffer.getChannelData(0);
+            let sum = 0;
+            for (let i = 0; i < input.length; i++) {
+                sum += input[i] * input[i];
+            }
+            const rms = Math.sqrt(sum / input.length);
+            const db = 20 * Math.log10(Math.max(rms, 1e-5));
+
+            const now = performance.now();
+            if (db > thresholdDb) {
+                this.lastSpokeTime = now;
+                if (!this.isOpen) {
+                    this.isOpen = true;
+                    this.gainNode.gain.cancelScheduledValues(
+                        this.audioContext.currentTime,
+                    );
+                    this.gainNode.gain.setTargetAtTime(
+                        1.0,
+                        this.audioContext.currentTime,
+                        0.012,
+                    );
+                }
+            } else if (this.isOpen && now - this.lastSpokeTime > holdMs) {
+                this.isOpen = false;
+                this.gainNode.gain.cancelScheduledValues(
+                    this.audioContext.currentTime,
+                );
+                this.gainNode.gain.setTargetAtTime(
+                    0.0,
+                    this.audioContext.currentTime,
+                    0.06,
+                );
+            }
+        };
+
+        this.processedTrack = this.destNode.stream.getAudioTracks()[0];
+    }
+
+    async restart(opts: AudioProcessorOptions): Promise<void> {
+        await this.destroy();
+        await this.init(opts);
+    }
+
+    async destroy(): Promise<void> {
+        if (this.scriptProcessor) {
+            this.scriptProcessor.onaudioprocess = null;
+        }
+        try {
+            this.sourceNode?.disconnect();
+            this.filterNode?.disconnect();
+            this.gainNode?.disconnect();
+            this.scriptProcessor?.disconnect();
+            this.dummyGain?.disconnect();
+        } catch (_) {}
+        this.processedTrack = undefined;
+    }
+}
+
 export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public room?: Room;
     public roomId?: string;
@@ -51,6 +191,37 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         );
     }
 
+    private async applyAudioEnhancements(pub: any) {
+        if (!pub || !pub.track) return;
+        try {
+            const track = pub.track;
+            if (track.processor) return;
+            if (
+                typeof window !== "undefined" &&
+                (window.AudioContext || (window as any).webkitAudioContext)
+            ) {
+                if (!track.audioContext) {
+                    const ctx = new (window.AudioContext ||
+                        (window as any).webkitAudioContext)();
+                    if (ctx.state === "suspended") {
+                        await ctx.resume().catch(() => {});
+                    }
+                    track.setAudioContext(ctx);
+                }
+                const processor = new NoiseGateProcessor();
+                await track.setProcessor(processor);
+                console.log(
+                    "[VoiceClient] LieCord smart noise suppression & gate activated",
+                );
+            }
+        } catch (err) {
+            console.warn(
+                "[VoiceClient] Could not apply audio processor, fallback to native constraints:",
+                err,
+            );
+        }
+    }
+
     async connect(url: string, roomId: string, token: string) {
         if (this.room) {
             this.disconnect();
@@ -62,11 +233,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.videoTracks.clear();
 
         const room = new Room({
-            audioCaptureDefaults: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-            },
+            audioCaptureDefaults: DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
         });
 
         this.room = room;
@@ -75,10 +242,14 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             this.emit("ready");
             if (!this.isDeaf) {
                 room.localParticipant
-                    .setMicrophoneEnabled(true)
-                    .then((pub) => {
+                    .setMicrophoneEnabled(
+                        true,
+                        DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+                    )
+                    .then(async (pub) => {
                         if (pub) {
                             this.audioProducer = pub;
+                            await this.applyAudioEnhancements(pub);
                             this.emit("startProduce", "audio");
                         }
                     })
@@ -260,8 +431,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             try {
                 const pub = await this.room.localParticipant.setMicrophoneEnabled(
                     true,
+                    DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
                 );
                 this.audioProducer = pub;
+                await this.applyAudioEnhancements(pub);
                 this.emit("startProduce", "audio");
                 if (typeof window !== "undefined") {
                     window.localStorage.setItem("audioPermissionGranted", "true");
