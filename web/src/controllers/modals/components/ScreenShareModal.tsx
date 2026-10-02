@@ -422,7 +422,7 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                     </>
                 ) : (
                     <div style={{ padding: "24px 20px", fontSize: "14px", color: "#949ba4" }}>
-                        Браузер запросит выбор экрана или окна после нажатия кнопки «В эфир».
+                        Окно выбора экрана или приложения откроется после нажатия кнопки «В эфир».
                     </div>
                 )}
 
