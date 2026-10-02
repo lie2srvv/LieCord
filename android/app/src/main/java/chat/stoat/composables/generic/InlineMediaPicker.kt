@@ -37,7 +37,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 fun InlineMediaPicker(
     currentModel: Any?,
     modifier: Modifier = Modifier,
-    mimeType: String = "image/*",
+    mimeType: String = "*/*",
     circular: Boolean = false,
     useAvatarCircularity: Boolean = false,
     onPick: (Uri) -> Unit,
@@ -117,7 +117,7 @@ fun InlineMediaPicker(
 @Composable
 fun InlineMediaPickerMediaPicker(
     currentModel: Any?,
-    mimeType: String = "image/*",
+    mimeType: String = "*/*",
     circular: Boolean = false,
     useAvatarCircularity: Boolean = false,
     enabled: Boolean = true,

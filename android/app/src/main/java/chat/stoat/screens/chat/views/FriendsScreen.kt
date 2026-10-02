@@ -405,7 +405,7 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                         UserAvatar(
                             username = contents?.username ?: stringResource(R.string.unknown),
                             userId = contents?.id ?: "",
-                            allowAnimation = false,
+                            allowAnimation = true,
                             shape = RoundedCornerShape(LoadedSettings.avatarRadius),
                             size = 128.dp,
                             avatar = contents?.avatar?.let {

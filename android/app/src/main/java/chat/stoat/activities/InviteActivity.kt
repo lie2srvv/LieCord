@@ -215,7 +215,7 @@ fun InviteScreen(
                             if (invite?.serverIcon != null) {
                                 RemoteImage(
                                     url = "$STOAT_FILES/icons/${invite.serverIcon!!.id}/${invite.serverIcon!!.filename}",
-                                    allowAnimation = false,
+                                    allowAnimation = true,
                                     description = viewModel.inviteResult?.value?.serverName
                                         ?: stringResource(id = R.string.unknown),
                                     modifier = Modifier

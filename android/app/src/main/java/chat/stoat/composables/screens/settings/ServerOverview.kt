@@ -53,6 +53,7 @@ fun ServerOverview(server: Server) {
             RemoteImage(
                 url = "$STOAT_FILES/banners/${it.id}/${it.filename}",
                 description = null,
+                allowAnimation = true,
                 modifier = Modifier
                     .height(166.dp)
                     .fillMaxWidth(),
@@ -82,7 +83,7 @@ fun ServerOverview(server: Server) {
                 RemoteImage(
                     url = "$STOAT_FILES/icons/${it.id}",
                     description = null,
-                    allowAnimation = false,
+                    allowAnimation = true,
                     modifier = Modifier
                         .clip(CircleShape)
                         .height(48.dp)

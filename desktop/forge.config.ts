@@ -1,3 +1,4 @@
+import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerFlatpak } from "@electron-forge/maker-flatpak";
 import { MakerFlatpakOptionsConfig } from "@electron-forge/maker-flatpak/dist/Config";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
@@ -36,8 +37,12 @@ const makers: ForgeConfig["makers"] = [
     exe: `${STRINGS.execName}.exe`,
     setupExe: `${STRINGS.execName}-setup.exe`,
     copyright: "Copyright (C) 2026 LieCord",
-  }),
-  new MakerZIP({}),
+  }, ["win32"]),
+  new MakerZIP({}, ["darwin", "linux", "win32"]),
+  new MakerDMG({
+    name: STRINGS.name,
+    icon: `${ASSET_DIR}/icon.icns`,
+  }, ["darwin"]),
   new MakerFlatpak({
     options: {
       id: "com.lie2srvv.LieCord",
@@ -92,7 +97,7 @@ const makers: ForgeConfig["makers"] = [
       ],
       files: [],
     } as MakerFlatpakOptionsConfig,
-  }),
+  }, ["linux"]),
 ];
 
 const config: ForgeConfig = {
@@ -102,12 +107,9 @@ const config: ForgeConfig = {
     executableName: STRINGS.execName,
     icon:
       process.platform === "darwin"
-        ? `${ASSET_DIR}/icon.icon`
+        ? `${ASSET_DIR}/icon.icns`
         : `${ASSET_DIR}/icon`,
-    // extraResource: [
-    //   // include all the asset files
-    //   ...globSync(ASSET_DIR + "/**/*"),
-    // ],
+    // extraResource: []
   },
   rebuildConfig: {},
   makers,
