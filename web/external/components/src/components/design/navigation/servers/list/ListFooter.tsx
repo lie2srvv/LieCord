@@ -32,21 +32,7 @@ export function ListFooter({ createServer, showDiscover }: FooterProps) {
                     </Tooltip>
                 </ItemContainer>
             </a>
-            {showDiscover && (
-                <Link to="/discover">
-                    <ItemContainer>
-                        <Tooltip content="Discover Revolt" div right>
-                            <Avatar
-                                size={42}
-                                fallback={
-                                    <Compass color="var(--accent)" size={24} />
-                                }
-                                interactive
-                            />
-                        </Tooltip>
-                    </ItemContainer>
-                </Link>
-            )}
+{/* Discover Revolt removed */}
         </>
     );
 }

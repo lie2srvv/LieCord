@@ -19,6 +19,7 @@ import CollapsibleSection from "../../common/CollapsibleSection";
 import ServerHeader from "../../common/ServerHeader";
 import { ChannelButton } from "../items/ButtonItem";
 import ConnectionStatus from "../items/ConnectionStatus";
+import { StatusPanel } from "./StatusPanel";
 
 const ServerBase = styled.div`
     height: 100%;
@@ -151,6 +152,7 @@ export default observer(() => {
                 {elements}
             </ServerList>
             <PaintCounter small />
+            <StatusPanel />
         </ServerBase>
     );
 });

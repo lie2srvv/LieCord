@@ -71,6 +71,9 @@ class ChannelRegistrator(val context: Context) {
                 group = CHANNEL_ID_GROUP_CONVERSATIONS
                 description =
                     context.getString(R.string.notification_channel_messages_description)
+                enableVibration(true)
+                setShowBadge(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
             }
         )
         notificationManager.createNotificationChannel(

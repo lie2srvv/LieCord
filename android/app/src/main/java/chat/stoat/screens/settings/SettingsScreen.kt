@@ -320,44 +320,6 @@ fun SettingsScreen(
 
                     SettingsListItem(
                         first = true,
-                        headlineContent = { Text(text = stringResource(id = R.string.settings_changelog)) },
-                        leadingContent = {
-                            SettingsIcon {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_campaign_24dp),
-                                    contentDescription = null,
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .testTag("settings_view_changelog")
-                            .clickable { navController.navigate("changelog/latest") }
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    SettingsListItem(
-                        headlineContent = { Text(text = stringResource(id = R.string.settings_feedback)) },
-                        supportingContent = { Text(text = stringResource(id = R.string.settings_feedback_description)) },
-                        leadingContent = {
-                            SettingsIcon {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_feedback_24dp),
-                                    contentDescription = null,
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .testTag("settings_view_feedback")
-                            .clickable {
-                                val intent = Intent(
-                                    context,
-                                    InviteActivity::class.java
-                                ).setAction(Intent.ACTION_VIEW)
-                                intent.data = "https://stt.gg/Testers".toUri()
-                                context.startActivity(intent)
-                            }
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    SettingsListItem(
                         last = true,
                         headlineContent = {
                             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.error) {

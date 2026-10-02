@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.StrictMode
 import chat.stoat.api.realtime.RealtimeConnectionMonitor
+import chat.stoat.c2dm.ChannelRegistrator
 import chat.stoat.di.appModule
 import chat.stoat.di.viewModelModule
 import coil3.ImageLoader
@@ -39,6 +40,7 @@ class StoatApplication : Application(), SingletonImageLoader.Factory {
         }
 
         RealtimeConnectionMonitor(this).start()
+        ChannelRegistrator(this).register()
 
         if (BuildConfig.DEBUG) {
             // Enable strict mode primarily to catch non-API usage, although we detect all

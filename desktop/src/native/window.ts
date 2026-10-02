@@ -29,6 +29,10 @@ export const BUILD_URL = new URL(
 // internal window state
 let shouldQuit = false;
 
+// pending screen selection from custom UI
+let pendingScreenSource: any = null;
+let pendingScreenAudio: boolean = false;
+
 // load the window icon
 const windowIcon = nativeImage.createFromDataURL(windowIconAsset);
 
@@ -43,7 +47,6 @@ export function createMainWindow() {
     app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
   const isMacOS = process.platform === "darwin";
 
-  // create the window
   mainWindow = new BrowserWindow({
     minWidth: 300,
     minHeight: 300,
@@ -56,7 +59,6 @@ export function createMainWindow() {
     icon: windowIcon,
     show: !startHidden,
     webPreferences: {
-      // relative to `.vite/build`
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
@@ -64,10 +66,10 @@ export function createMainWindow() {
     },
   });
 
-  // hide the options
+  // remove default menu
   mainWindow.setMenu(null);
 
-  // restore last position if it was moved previously
+  // restore window state if available
   if (config.windowState.x > 0 || config.windowState.y > 0) {
     mainWindow.setPosition(
       config.windowState.x ?? 0,
@@ -75,7 +77,6 @@ export function createMainWindow() {
     );
   }
 
-  // restore last size if it was resized previously
   if (config.windowState.width > 0 && config.windowState.height > 0) {
     mainWindow.setSize(
       config.windowState.width ?? 1280,
@@ -83,17 +84,18 @@ export function createMainWindow() {
     );
   }
 
-  // maximise the window if it was maximised before
   if (config.windowState.isMaximised && !startHidden) {
     mainWindow.maximize();
   }
 
-  // load the entrypoint
-  mainWindow
-    .loadURL(BUILD_URL.toString())
-    .then(() => mainWindow.webContents.reload());
+  // load the remote client
+  mainWindow.loadURL(BUILD_URL.toString()).then(() => {
+    // Workaround for https://github.com/electron/electron/issues/45138
+    // when using web contents in service workers
+    mainWindow.webContents.reload();
+  });
 
-  // minimise window to tray
+  // hide window when closed (if minimise to tray is enabled)
   mainWindow.on("close", (event) => {
     if (!shouldQuit && config.minimiseToTray) {
       event.preventDefault();
@@ -101,12 +103,10 @@ export function createMainWindow() {
     }
   });
 
-  // update tray menu when window is shown/hidden
   mainWindow.on("show", updateTrayMenu);
   mainWindow.on("hide", updateTrayMenu);
 
-  // keep track of window state
-  function generateState() {
+  function saveWindowState() {
     config.windowState = {
       x: mainWindow.getPosition()[0],
       y: mainWindow.getPosition()[1],
@@ -116,27 +116,24 @@ export function createMainWindow() {
     };
   }
 
-  mainWindow.on("maximize", generateState);
-  mainWindow.on("unmaximize", generateState);
-  mainWindow.on("moved", generateState);
-  mainWindow.on("resized", generateState);
+  mainWindow.on("maximize", saveWindowState);
+  mainWindow.on("unmaximize", saveWindowState);
+  mainWindow.on("moved", saveWindowState);
+  mainWindow.on("resized", saveWindowState);
 
-  // rebind zoom controls to be more sensible
+  // handle shortcuts
   mainWindow.webContents.on("before-input-event", (event, input) => {
     if (input.control && (input.key === "=" || input.key === "+")) {
-      // zoom in (+)
       event.preventDefault();
       mainWindow.webContents.setZoomLevel(
         mainWindow.webContents.getZoomLevel() + 1,
       );
     } else if (input.control && input.key === "-") {
-      // zoom out (-)
       event.preventDefault();
       mainWindow.webContents.setZoomLevel(
         mainWindow.webContents.getZoomLevel() - 1,
       );
     } else if (input.control && input.key === "0") {
-      // reset zoom to default.
       event.preventDefault();
       mainWindow.webContents.setZoomLevel(0);
     } else if (
@@ -148,14 +145,14 @@ export function createMainWindow() {
     }
   });
 
-  // send the config
+  // synchronize configuration on client load
   mainWindow.webContents.on("did-finish-load", () => config.sync());
 
-  // configure spellchecker context menu
+  // context menu for spellcheck
   mainWindow.webContents.on("context-menu", (_, params) => {
     const menu = new Menu();
 
-    // add all suggestions
+    // Add each spelling suggestion
     for (const suggestion of params.dictionarySuggestions) {
       menu.append(
         new MenuItem({
@@ -165,7 +162,7 @@ export function createMainWindow() {
       );
     }
 
-    // allow users to add the misspelled word to the dictionary
+    // Allow users to add the misspelled word to the dictionary
     if (params.misspelledWord) {
       menu.append(
         new MenuItem({
@@ -178,7 +175,6 @@ export function createMainWindow() {
       );
     }
 
-    // add an option to toggle spellchecker
     menu.append(
       new MenuItem({
         label: "Toggle spellcheck",
@@ -194,10 +190,55 @@ export function createMainWindow() {
     }
   });
 
+  // IPC handlers for custom screen share picker
+  ipcMain.handle("getScreenSources", async () => {
+    const sources = await desktopCapturer.getSources({
+      types: ["screen", "window"],
+      thumbnailSize: { width: 360, height: 200 },
+      fetchWindowIcons: true,
+    });
+    return sources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      isScreen: s.id.startsWith("screen"),
+      thumbnail: s.thumbnail.toDataURL(),
+      appIcon: s.appIcon ? s.appIcon.toDataURL() : undefined,
+    }));
+  });
+
+  ipcMain.handle(
+    "selectScreenSource",
+    async (_, sourceId: string, audio?: boolean) => {
+      const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+      });
+      pendingScreenSource = sources.find((s) => s.id === sourceId) || null;
+      pendingScreenAudio = Boolean(audio);
+      return !!pendingScreenSource;
+    },
+  );
+
   // Create display media request handler with screen/window picker
   session.defaultSession.setDisplayMediaRequestHandler(
     async (request, callback) => {
       try {
+        const isWin = process.platform === "win32";
+
+        // Check if pre-selected via custom UI
+        if (pendingScreenSource) {
+          const src = pendingScreenSource;
+          const includeAudio = Boolean(
+            isWin && request.audioRequested && pendingScreenAudio,
+          );
+          pendingScreenSource = null;
+          pendingScreenAudio = false;
+
+          includeAudio
+            ? callback({ video: src, audio: "loopback" })
+            : callback({ video: src });
+          return;
+        }
+
         const sources = await desktopCapturer.getSources({
           types: ["screen", "window"],
           fetchWindowIcons: true,
@@ -209,7 +250,6 @@ export function createMainWindow() {
           return;
         }
 
-        const isWin = process.platform === "win32";
         const includeAudio = Boolean(isWin && request.audioRequested);
 
         if (sources.length === 1) {
@@ -232,13 +272,15 @@ export function createMainWindow() {
           }
         };
 
-        // Screen selection menu
+        // Fallback screen selection menu
         const menu = new Menu();
         const screens = sources.filter((s) => s.id.startsWith("screen"));
         const windows = sources.filter((s) => s.id.startsWith("window"));
 
         if (screens.length > 0) {
-          menu.append(new MenuItem({ label: "── Экраны ──", enabled: false }));
+          menu.append(
+            new MenuItem({ label: "── Экраны ──", enabled: false }),
+          );
           for (const s of screens) {
             menu.append(
               new MenuItem({
@@ -251,7 +293,9 @@ export function createMainWindow() {
 
         if (windows.length > 0) {
           if (screens.length > 0) menu.append(new MenuItem({ type: "separator" }));
-          menu.append(new MenuItem({ label: "── Окна ──", enabled: false }));
+          menu.append(
+            new MenuItem({ label: "── Окна ──", enabled: false }),
+          );
           for (const s of windows) {
             const title =
               s.name.length > 45 ? s.name.substring(0, 42) + "..." : s.name;
@@ -289,7 +333,6 @@ export function createMainWindow() {
         callback({});
       }
     },
-    { useSystemPicker: true },
   );
 
   // push world events to the window
@@ -298,6 +341,10 @@ export function createMainWindow() {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
   );
   ipcMain.on("close", () => mainWindow.close());
+  ipcMain.on("relaunch", () => {
+    app.relaunch();
+    quitApp();
+  });
 }
 
 /**

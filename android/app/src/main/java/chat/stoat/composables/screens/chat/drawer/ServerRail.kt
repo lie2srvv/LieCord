@@ -195,7 +195,7 @@ fun ServerIconImage(server: Server, modifier: Modifier = Modifier) {
     if (icon != null) {
         RemoteImage(
             url = icon,
-            allowAnimation = false,
+            allowAnimation = true,
             modifier = Modifier
                 .clip(CircleShape)
                 .then(modifier),
@@ -367,7 +367,7 @@ private fun FolderPreview(servers: List<Server>) {
                     if (icon != null) {
                         RemoteImage(
                             url = icon,
-                            allowAnimation = false,
+                            allowAnimation = true,
                             modifier = modifier,
                             description = null
                         )

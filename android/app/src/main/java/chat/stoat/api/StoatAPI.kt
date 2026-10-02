@@ -23,9 +23,6 @@ import chat.stoat.core.model.schemas.User
 import chat.stoat.core.model.util.ChannelVoiceState
 import chat.stoat.persistence.Database
 import chat.stoat.persistence.SqlStorage
-import com.chuckerteam.chucker.api.ChuckerCollector
-import com.chuckerteam.chucker.api.ChuckerInterceptor
-import com.chuckerteam.chucker.api.RetentionManager
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.DefaultRequest
@@ -114,20 +111,6 @@ val StoatHttp = HttpClient(OkHttp) {
 
     install(Logging) { level = LogLevel.INFO }
 
-    val chuckerCollector = ChuckerCollector(
-        context = StoatApplication.instance,
-        showNotification = true,
-        retentionPeriod = RetentionManager.Period.ONE_DAY
-    )
-
-    val chuckerInterceptor = ChuckerInterceptor.Builder(StoatApplication.instance)
-        .collector(chuckerCollector)
-        .maxContentLength(250_000L)
-        .redactHeaders(StoatAPI.TOKEN_HEADER_NAME, MFA_TICKET_HEADER_NAME)
-        .alwaysReadResponseBody(true)
-        .createShortcut(false)
-        .build()
-
     engine {
         addInterceptor { chain ->
             val request = chain.request().newBuilder()
@@ -139,7 +122,6 @@ val StoatHttp = HttpClient(OkHttp) {
                 .build()
             chain.proceed(request)
         }
-        addInterceptor(chuckerInterceptor)
     }
 
     defaultRequest {

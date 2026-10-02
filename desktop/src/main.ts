@@ -54,7 +54,8 @@ const onNotifyUser = (_info: IUpdateInfo) => {
 
 if (acquiredLock) {
   // start auto update logic
-  updateElectronApp({ onNotifyUser });
+  // updateElectronApp disabled for self-hosted LieCord
+  // updateElectronApp({ onNotifyUser });
 
   // create and configure the app when electron is ready
   app.on("ready", () => {

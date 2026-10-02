@@ -113,7 +113,6 @@ import chat.stoat.screens.register.OnboardingScreen
 import chat.stoat.screens.register.RegisterDetailsScreen
 import chat.stoat.screens.register.RegisterGreetingScreen
 import chat.stoat.screens.register.RegisterVerifyScreen
-import chat.stoat.screens.services.DiscoverScreen
 import chat.stoat.screens.settings.AccountSettingsScreen
 import chat.stoat.screens.settings.AppearanceSettingsScreen
 import chat.stoat.screens.settings.ChatSettingsScreen
@@ -195,10 +194,9 @@ class MainActivityViewModel(
         viewModelScope.launch {
             Log.d("MainActivity", "Hydrating Experiments from KV")
             Experiments.hydrateWithKv()
-            Log.d("MainActivity", "Performing health check")
-            doHealthCheck()
-            Log.d("MainActivity", "Performing update geo state")
-            updateGeoState()
+            // External health check and Revolt geo queries disabled
+            // doHealthCheck()
+            // updateGeoState()
         }
     }
 
@@ -380,9 +378,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        SentryAndroid.init(this) { options ->
-            options.dsn = BuildConfig.SENTRY_DSN
-            options.release = BuildConfig.VERSION_NAME
+        // Sentry disabled for privacy / self-hosted
+        if (BuildConfig.SENTRY_DSN.isNotBlank()) {
+            SentryAndroid.init(this) { options ->
+                options.dsn = BuildConfig.SENTRY_DSN
+                options.release = BuildConfig.VERSION_NAME
+            }
         }
 
         @Suppress("DEPRECATION") // We are fixing a bug in the splash screen
@@ -754,7 +755,6 @@ fun AppEntrypoint(
 
                     composable("create/group") { CreateGroupScreen(navController) }
 
-                    composable("discover") { DiscoverScreen(navController) }
 
                     composable("settings") { SettingsScreen(navController) }
                     composable("settings/account") { AccountSettingsScreen(navController) }

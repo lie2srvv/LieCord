@@ -195,6 +195,7 @@ export type Modal = {
           target: { name: string, id: string },
           callback: () => Promise<void>;
     }
+    | { type: "screen_share"; }
 );
 
 export type ModalProps<T extends Modal["type"]> = Modal & { type: T } & {

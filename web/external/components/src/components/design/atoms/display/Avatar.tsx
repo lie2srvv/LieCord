@@ -99,7 +99,18 @@ export function Avatar({
                 width="32"
                 height="32"
                 mask={holepunch ? `url(#holepunch-${holepunch})` : undefined}>
-                {src && <Image src={src} />}
+                {src && (src.includes(".mp4") || src.includes(".webm") || src.includes("video") ? (
+                    <video
+                        src={src}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "var(--border-radius-user-icon, 16px)" }}
+                    />
+                ) : (
+                    <Image src={src} />
+                ))}
                 {!src && (
                     <FallbackBase>
                         {typeof fallback === "string" ? (

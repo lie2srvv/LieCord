@@ -52,7 +52,7 @@ fun VoiceParticipant(
             UserAvatar(
                 username = displayNameInChannel(state.id, channelId),
                 userId = state.id,
-                allowAnimation = speaking,
+                allowAnimation = true,
                 avatar = user?.avatar,
                 modifier = Modifier.border(
                     speakingBorderWidth,

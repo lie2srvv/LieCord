@@ -7,6 +7,7 @@ import {
     RemoteTrackPublication,
     RemoteTrack,
     Participant,
+    ScreenShareCaptureOptions,
 } from "livekit-client";
 import { ProduceType, VoiceUser } from "./Types";
 
@@ -25,6 +26,11 @@ interface VoiceEvents {
     userStopProduce: (userId: string, type: ProduceType) => void;
 
     activeSpeakersChanged: (speakers: string[]) => void;
+}
+
+export interface ScreenShareOptions {
+    resolution?: { width: number; height: number; frameRate: number };
+    audio?: boolean;
 }
 
 export default class VoiceClient extends EventEmitter<VoiceEvents> {
@@ -244,7 +250,11 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         });
     }
 
-    async startProduce(track: MediaStreamTrack, type: ProduceType) {
+    async startProduce(
+        track: MediaStreamTrack,
+        type: ProduceType,
+        screenOpts?: ScreenShareOptions,
+    ) {
         if (!this.room) return;
         if (type === "audio") {
             try {
@@ -258,21 +268,34 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             }
         } else if (type === "screen") {
             try {
+                const captureResolution = screenOpts?.resolution ?? {
+                    width: 1280,
+                    height: 720,
+                    frameRate: 30,
+                };
+                const captureOpts: ScreenShareCaptureOptions = {
+                    audio: screenOpts?.audio !== false,
+                    resolution: captureResolution,
+                };
+
                 let pub;
                 try {
-                    // Try with audio first (supported on Windows / some setups)
+                    // Try with audio first if requested
                     pub = await this.room.localParticipant.setScreenShareEnabled(
                         true,
-                        { audio: true },
+                        captureOpts,
                     );
                 } catch (audioErr) {
                     console.warn(
-                        "Screen share with audio not supported on this platform, falling back to video only:",
+                        "Screen share with audio failed, falling back to video only:",
                         audioErr,
                     );
                     pub = await this.room.localParticipant.setScreenShareEnabled(
                         true,
-                        { audio: false },
+                        {
+                            audio: false,
+                            resolution: captureResolution,
+                        },
                     );
                 }
 

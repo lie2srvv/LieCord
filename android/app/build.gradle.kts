@@ -72,14 +72,22 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("liecord-release.keystore")
+            storePassword = "***"
+            keyAlias = "liecord"
+            keyPassword = "***"
+            isV1SigningEnabled = true
+            isV2SigningEnabled = true
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("release")
             buildConfigField(
                 "String",
                 "SENTRY_DSN",
@@ -135,8 +143,10 @@ android {
         generateLocaleConfig = true
     }
     lint {
+        checkReleaseBuilds = false
         abortOnError = false
         disable += "MissingTranslation"
+        disable += "ExtraTranslation"
     }
 }
 
@@ -256,8 +266,6 @@ dependencies {
 
     implementation(libs.shimmer)
 
-    debugImplementation(libs.chucker)
-    releaseImplementation(libs.chucker.noop)
 
     implementation(libs.square.logcat)
 

@@ -3,6 +3,7 @@ import { Channel, Nullable, toNullable } from "revolt.js";
 
 import type { ProduceType, VoiceUser } from "./Types";
 import type VoiceClient from "./VoiceClient";
+import type { ScreenShareOptions } from "./VoiceClient";
 
 export enum VoiceStatus {
     LOADING = 0,
@@ -247,7 +248,7 @@ class VoiceStateReference {
         this.syncState();
     }
 
-    @action async startProducing(type: ProduceType) {
+    @action async startProducing(type: ProduceType, screenOpts?: ScreenShareOptions) {
         if (type === "audio") {
             this.isMuted = false;
             if (this.isDeafened) {
@@ -263,7 +264,7 @@ class VoiceStateReference {
             }
         } else if (type === "screen") {
             if (this.client?.screenProducer !== undefined) return;
-            await this.client?.startProduce({} as any, "screen");
+            await this.client?.startProduce({} as any, "screen", screenOpts);
         }
         this.syncState();
     }

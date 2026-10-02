@@ -520,24 +520,7 @@ fun ChannelSideDrawer(
                     }
                 }
 
-                item(key = "discover") {
-                    Box(
-                        Modifier
-                            .padding(bottom = RailItemGap)
-                            .padding(8.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                topNav.navigate("discover")
-                            }
-                            .size(48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_explore_24dp),
-                            contentDescription = stringResource(R.string.discover_alt)
-                        )
-                    }
-                }
+
 
                 if (showSettingsIcon) {
                     item(key = "settings") {

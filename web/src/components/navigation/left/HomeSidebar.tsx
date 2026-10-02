@@ -27,6 +27,7 @@ import { modalController } from "../../../controllers/modals/ModalController";
 import { GenericSidebarBase, GenericSidebarList } from "../SidebarBase";
 import ButtonItem, { ChannelButton } from "../items/ButtonItem";
 import ConnectionStatus from "../items/ConnectionStatus";
+import { StatusPanel } from "./StatusPanel";
 
 const Navbar = styled.div`
     display: flex;
@@ -176,6 +177,7 @@ export default observer(() => {
                 })}
                 <PaintCounter />
             </GenericSidebarList>
+            <StatusPanel />
         </GenericSidebarBase>
     );
 });

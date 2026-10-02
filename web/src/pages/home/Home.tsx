@@ -128,44 +128,6 @@ export default observer(() => {
                                     <Text id="app.home.group" />
                                 </CategoryButton>
                             </a>
-                            <Link to="/discover">
-                                <a>
-                                    <CategoryButton
-                                        action="chevron"
-                                        icon={<Compass size={32} />}
-                                        description={
-                                            <Text id="app.home.discover_desc" />
-                                        }>
-                                        <Text id="app.home.discover" />
-                                    </CategoryButton>
-                                </a>
-                            </Link>
-
-                            {client.servers.get(
-                                "01F7ZSBSFHQ8TA81725KQCSDDP",
-                            ) ? (
-                                <Link to="/server/01F7ZSBSFHQ8TA81725KQCSDDP">
-                                    <CategoryButton
-                                        action="chevron"
-                                        icon={<RightArrowCircle size={32} />}
-                                        description={
-                                            <Text id="app.home.goto-testers_desc" />
-                                        }>
-                                        <Text id="app.home.goto-testers" />
-                                    </CategoryButton>
-                                </Link>
-                            ) : (
-                                <Link to="/invite/Testers">
-                                    <CategoryButton
-                                        action="chevron"
-                                        icon={<Group size={32} />}
-                                        description={
-                                            <Text id="app.home.join-testers_desc" />
-                                        }>
-                                        <Text id="app.home.join-testers" />
-                                    </CategoryButton>
-                                </Link>
-                            )}
 
                             <Link to="/settings">
                                 <CategoryButton

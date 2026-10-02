@@ -76,6 +76,7 @@ object VoiceCallManager {
 
     private val probeClient by lazy { HttpClient(OkHttp) }
 
+    var lastJoinTimestamp: Long = 0L
     private var micWasOnBeforeDeafen = false
     private var soundPlayer: VoiceSoundPlayer? = null
     private var sessionJob: Job? = null
@@ -92,6 +93,7 @@ object VoiceCallManager {
         if (activeChannelId == channelId && room != null) return
         endSession()
 
+        lastJoinTimestamp = System.currentTimeMillis()
         activeChannelId = channelId
         errorResource = null
         hasPlayedJoinSound = false

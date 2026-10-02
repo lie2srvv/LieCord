@@ -4,6 +4,8 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import chat.stoat.StoatApplication
+import chat.stoat.c2dm.NotificationPresenter
+import chat.stoat.voice.VoiceCallManager
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.StoatHttp
 import chat.stoat.api.StoatJson
@@ -350,6 +352,10 @@ object RealtimeSocket {
                         StoatAPI.channelCache[it]!!.copy(lastMessageID = messageFrame.id)
 
                     StoatAPI.wsFrameChannel.emit(messageFrame)
+                    NotificationPresenter.onMessageReceivedFromSocket(
+                        context = StoatApplication.instance,
+                        message = messageFrame
+                    )
                 }
             }
 
@@ -1031,6 +1037,14 @@ object RealtimeSocket {
 
                 StoatAPI.voiceStateCache[voiceChannelJoinFrame.id] =
                     ChannelVoiceState(voiceChannelJoinFrame.id, newParticipants)
+
+                if (voiceChannelJoinFrame.state.id == StoatAPI.selfId) {
+                    if (VoiceCallManager.activeChannelId != null &&
+                        System.currentTimeMillis() - VoiceCallManager.lastJoinTimestamp > 2500) {
+                        logcat { "Another session joined voice channel ${voiceChannelJoinFrame.id}, kicking local voice connection" }
+                        VoiceCallManager.leave()
+                    }
+                }
             }
 
             "VoiceChannelLeave" -> {
@@ -1077,6 +1091,14 @@ object RealtimeSocket {
 
                 StoatAPI.voiceStateCache[voiceChannelMoveFrame.to] =
                     ChannelVoiceState(voiceChannelMoveFrame.to, newToParticipants)
+
+                if (voiceChannelMoveFrame.state.id == StoatAPI.selfId) {
+                    if (VoiceCallManager.activeChannelId != null &&
+                        System.currentTimeMillis() - VoiceCallManager.lastJoinTimestamp > 2500) {
+                        logcat { "Another session moved to voice channel ${voiceChannelMoveFrame.to}, kicking local voice connection" }
+                        VoiceCallManager.leave()
+                    }
+                }
             }
 
             "UserVoiceStateUpdate" -> {

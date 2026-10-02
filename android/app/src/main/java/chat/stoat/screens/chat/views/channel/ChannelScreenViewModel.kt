@@ -1,5 +1,7 @@
 package chat.stoat.screens.chat.views.channel
 
+import chat.stoat.c2dm.NotificationPresenter
+
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -159,6 +161,7 @@ class ChannelScreenViewModel(
         clearAllTypingUsers()
         requestSequence++
         this.channelId = id
+        NotificationPresenter.activeViewedChannelId = id
         this.items = mutableStateListOf(ChannelScreenItem.Loading)
         this.activePane = ChannelScreenActivePane.None
         this.typingUsers = mutableStateListOf()
@@ -1311,5 +1314,10 @@ class ChannelScreenViewModel(
             kvStorage.set("spark/physicalKeyboard/dismissed", true)
             showPhysicalKeyboardSpark = false
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        NotificationPresenter.activeViewedChannelId = null
     }
 }

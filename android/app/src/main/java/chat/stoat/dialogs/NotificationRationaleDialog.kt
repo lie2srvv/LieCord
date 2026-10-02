@@ -47,18 +47,6 @@ fun NotificationRationaleDialog(
                 Text(
                     text = stringResource(id = R.string.spark_notifications_rationale_description)
                 )
-                if (BuildConfig.DEBUG) {
-                    Text(
-                        text = buildAnnotatedString {
-                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                            append("Debug build:")
-                            pop()
-                            append(" Required to open Chucker for network debugging. ")
-                            append("You can show this dialogue again from Settings -> Debug.")
-                        },
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
             }
         },
         dismissButton = {

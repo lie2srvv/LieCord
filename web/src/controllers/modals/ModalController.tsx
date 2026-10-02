@@ -51,6 +51,7 @@ import ShowToken from "./components/ShowToken";
 import SignOutSessions from "./components/SignOutSessions";
 import SignedOut from "./components/SignedOut";
 import UserPicker from "./components/UserPicker";
+import ScreenShareModal from "./components/ScreenShareModal";
 import { OnboardingModal } from "./components/legacy/Onboarding";
 import { UserProfile } from "./components/legacy/UserProfile";
 import { Modal } from "./types";
@@ -297,5 +298,6 @@ export const modalController = new ModalControllerExtended({
     report_success: ReportSuccess,
     modify_displayname: ModifyDisplayname,
     changelog_usernames: ChangelogUsernames,
-    reset_bot_token: Confirmation
+    reset_bot_token: Confirmation,
+    screen_share: ScreenShareModal
 });

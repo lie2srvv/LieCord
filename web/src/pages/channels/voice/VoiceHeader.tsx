@@ -311,7 +311,7 @@ export default observer(({ id }: Props) => {
                 ) : (
                     <Tooltip content={"Share screen"} placement={"top"}>
                         <Button
-                            onClick={() => voiceState.startProducing("screen")}>
+                            onClick={() => modalController.push({ type: "screen_share" })}>
                             <Desktop width={20} />
                         </Button>
                     </Tooltip>

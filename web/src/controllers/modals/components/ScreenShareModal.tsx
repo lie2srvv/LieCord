@@ -1,0 +1,480 @@
+import { useState, useEffect } from "preact/hooks";
+import styled from "styled-components/macro";
+import { ModalProps } from "../types";
+import { voiceState } from "../../../lib/vortex/VoiceState";
+import { ScreenSource } from "../../../types/native";
+
+const Backdrop = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+`;
+
+const Container = styled.div`
+    width: 600px;
+    max-width: 90vw;
+    background: var(--primary-background, #1e1f22);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--foreground, #dbdee1);
+    font-family: inherit;
+    animation: fadeIn 0.15s ease-out;
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+`;
+
+const Header = styled.div`
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--secondary-background, #2b2d31);
+
+    h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
+    }
+
+    button.close-btn {
+        background: transparent;
+        border: none;
+        color: var(--secondary-foreground, #949ba4);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-size: 18px;
+        line-height: 1;
+
+        &:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+    }
+`;
+
+const Tabs = styled.div`
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px 0;
+    border-bottom: 1px solid var(--secondary-background, #2b2d31);
+`;
+
+const TabButton = styled.button<{ active: boolean }>`
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
+    color: ${(props) => (props.active ? "#ffffff" : "var(--secondary-foreground, #949ba4)")};
+    font-size: 15px;
+    font-weight: 600;
+    padding: 8px 12px 10px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+        color: #ffffff;
+    }
+`;
+
+const SourcesGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 16px 20px;
+    max-height: 260px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 4px;
+    }
+`;
+
+const SourceCard = styled.div<{ selected: boolean }>`
+    display: flex;
+    flex-direction: column;
+    background: var(--secondary-background, #2b2d31);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid
+        ${(props) => (props.selected ? "var(--accent, #5865f2)" : "transparent")};
+    box-shadow: ${(props) =>
+        props.selected ? "0 0 0 1px var(--accent, #5865f2)" : "none"};
+    transition: transform 0.1s, border-color 0.15s, background-color 0.15s;
+
+    &:hover {
+        background: var(--tertiary-background, #313338);
+        ${(props) => !props.selected && "border-color: rgba(255, 255, 255, 0.2);"}
+    }
+
+    .thumb-wrapper {
+        width: 100%;
+        height: 120px;
+        background: #111214;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    }
+
+    .info {
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        img.app-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            border-radius: 3px;
+        }
+
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+`;
+
+const SettingsSection = styled.div`
+    padding: 12px 20px;
+    background: var(--secondary-background, #2b2d31);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+`;
+
+const SettingsRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+
+    .label {
+        font-weight: 600;
+        color: #b5bac1;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+
+    .options {
+        display: flex;
+        background: #1e1f22;
+        padding: 2px;
+        border-radius: 6px;
+        gap: 2px;
+    }
+`;
+
+const OptionButton = styled.button<{ active: boolean }>`
+    background: ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
+    color: ${(props) => (props.active ? "#ffffff" : "#949ba4")};
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+        color: #ffffff;
+        ${(props) => !props.active && "background: rgba(255, 255, 255, 0.05);"}
+    }
+`;
+
+const Footer = styled.div`
+    padding: 14px 20px;
+    background: #1e1f22;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+
+    button.cancel-btn {
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 4px;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    button.submit-btn {
+        background: #23a55a;
+        color: #ffffff;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 9px 22px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.15s;
+
+        &:hover {
+            background: #1d8d4c;
+        }
+
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    }
+`;
+
+const EmptyNotice = styled.div`
+    grid-column: 1 / -1;
+    padding: 30px;
+    text-align: center;
+    color: #949ba4;
+    font-size: 14px;
+`;
+
+export default function ScreenShareModal(props: ModalProps<"screen_share">) {
+    const [tab, setTab] = useState<"screens" | "windows">("screens");
+    const [sources, setSources] = useState<ScreenSource[]>([]);
+    const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [resolution, setResolution] = useState<"720" | "480">("720");
+    const [fps, setFps] = useState<"30" | "15">("30");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const hasNativePicker = Boolean(
+        typeof window !== "undefined" &&
+        window.native &&
+        typeof window.native.getScreenSources === "function"
+    );
+
+    useEffect(() => {
+        if (hasNativePicker && window.native.getScreenSources) {
+            setLoading(true);
+            window.native
+                .getScreenSources()
+                .then((srcs) => {
+                    setSources(srcs);
+                    if (srcs.length > 0) {
+                        const firstScreen = srcs.find((s) => s.isScreen);
+                        setSelectedSourceId(firstScreen ? firstScreen.id : srcs[0].id);
+                        if (!firstScreen && srcs.some((s) => !s.isScreen)) {
+                            setTab("windows");
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.error("Failed to get native screen sources:", err);
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        }
+    }, [hasNativePicker]);
+
+    const filteredSources = sources.filter((s) =>
+        tab === "screens" ? s.isScreen : !s.isScreen
+    );
+
+    const handleShare = async () => {
+        setIsSubmitting(true);
+        try {
+            const resObj =
+                resolution === "720"
+                    ? { width: 1280, height: 720, frameRate: Number(fps) }
+                    : { width: 854, height: 480, frameRate: Number(fps) };
+
+            if (hasNativePicker && selectedSourceId && window.native.selectScreenSource) {
+                await window.native.selectScreenSource(selectedSourceId, true);
+            }
+
+            await voiceState.startProducing("screen", {
+                resolution: resObj,
+                audio: true,
+            });
+
+            props.onClose();
+        } catch (err) {
+            console.error("Failed to start screen share:", err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Backdrop onClick={props.onClose}>
+            <Container onClick={(e) => e.stopPropagation()}>
+                <Header>
+                    <h2>Поделиться экраном</h2>
+                    <button className="close-btn" onClick={props.onClose}>
+                        ✕
+                    </button>
+                </Header>
+
+                {hasNativePicker ? (
+                    <>
+                        <Tabs>
+                            <TabButton
+                                active={tab === "screens"}
+                                onClick={() => {
+                                    setTab("screens");
+                                    const first = sources.find((s) => s.isScreen);
+                                    if (first) setSelectedSourceId(first.id);
+                                }}>
+                                Экраны
+                            </TabButton>
+                            <TabButton
+                                active={tab === "windows"}
+                                onClick={() => {
+                                    setTab("windows");
+                                    const first = sources.find((s) => !s.isScreen);
+                                    if (first) setSelectedSourceId(first.id);
+                                }}>
+                                Окна приложений
+                            </TabButton>
+                        </Tabs>
+
+                        <SourcesGrid>
+                            {loading ? (
+                                <EmptyNotice>Загрузка источников...</EmptyNotice>
+                            ) : filteredSources.length === 0 ? (
+                                <EmptyNotice>
+                                    {tab === "screens"
+                                        ? "Экраны не найдены"
+                                        : "Окна приложений не найдены"}
+                                </EmptyNotice>
+                            ) : (
+                                filteredSources.map((source) => (
+                                    <SourceCard
+                                        key={source.id}
+                                        selected={selectedSourceId === source.id}
+                                        onClick={() => setSelectedSourceId(source.id)}>
+                                        <div className="thumb-wrapper">
+                                            <img
+                                                src={source.thumbnail}
+                                                alt={source.name}
+                                                draggable={false}
+                                            />
+                                        </div>
+                                        <div className="info">
+                                            {source.appIcon && (
+                                                <img
+                                                    className="app-icon"
+                                                    src={source.appIcon}
+                                                    alt=""
+                                                />
+                                            )}
+                                            <span title={source.name}>{source.name}</span>
+                                        </div>
+                                    </SourceCard>
+                                ))
+                            )}
+                        </SourcesGrid>
+                    </>
+                ) : (
+                    <div style={{ padding: "24px 20px", fontSize: "14px", color: "#949ba4" }}>
+                        Браузер запросит выбор экрана или окна после нажатия кнопки «В эфир».
+                    </div>
+                )}
+
+                <SettingsSection>
+                    <SettingsRow>
+                        <div className="label">Разрешение</div>
+                        <div className="options">
+                            <OptionButton
+                                active={resolution === "480"}
+                                onClick={() => setResolution("480")}>
+                                480p
+                            </OptionButton>
+                            <OptionButton
+                                active={resolution === "720"}
+                                onClick={() => setResolution("720")}>
+                                720p (макс.)
+                            </OptionButton>
+                        </div>
+                    </SettingsRow>
+
+                    <SettingsRow>
+                        <div className="label">Частота кадров</div>
+                        <div className="options">
+                            <OptionButton
+                                active={fps === "15"}
+                                onClick={() => setFps("15")}>
+                                15 FPS
+                            </OptionButton>
+                            <OptionButton
+                                active={fps === "30"}
+                                onClick={() => setFps("30")}>
+                                30 FPS (макс.)
+                            </OptionButton>
+                        </div>
+                    </SettingsRow>
+                </SettingsSection>
+
+                <Footer>
+                    <button className="cancel-btn" onClick={props.onClose}>
+                        Отмена
+                    </button>
+                    <button
+                        className="submit-btn"
+                        disabled={
+                            isSubmitting ||
+                            (hasNativePicker && !selectedSourceId && sources.length > 0)
+                        }
+                        onClick={handleShare}>
+                        {isSubmitting ? "Подключение..." : "В эфир"}
+                    </button>
+                </Footer>
+            </Container>
+        </Backdrop>
+    );
+}

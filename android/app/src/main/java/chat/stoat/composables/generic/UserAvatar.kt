@@ -141,7 +141,7 @@ fun UserAvatar(
     size: Dp = 40.dp,
     presenceSize: Dp = 16.dp,
     shape: Shape = RoundedCornerShape(LoadedSettings.avatarRadius),
-    allowAnimation: Boolean = false,
+    allowAnimation: Boolean = true,
     onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -232,7 +232,7 @@ fun GroupIcon(
         if (icon?.id != null) {
             RemoteImage(
                 url = rawUrl ?: "$STOAT_FILES/icons/${icon.id}",
-                allowAnimation = false,
+                allowAnimation = true,
                 contentScale = ContentScale.Crop,
                 description = stringResource(id = R.string.avatar_alt, name),
                 modifier = Modifier

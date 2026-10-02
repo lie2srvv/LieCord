@@ -143,11 +143,34 @@ export const UserProfile = observer(
                     className={styles.header}
                     data-force={profile?.background ? "light" : undefined}
                     style={{
+                        position: "relative",
+                        overflow: "hidden",
                         backgroundImage:
-                            backgroundURL &&
-                            `linear-gradient( rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7) ), url('${backgroundURL}')`,
+                            backgroundURL && !(backgroundURL.includes(".mp4") || backgroundURL.includes(".webm") || backgroundURL.includes("video"))
+                                ? `linear-gradient( rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7) ), url('${backgroundURL}')`
+                                : undefined,
                         paddingBottom: "1px",
                     }}>
+                    {backgroundURL && (backgroundURL.includes(".mp4") || backgroundURL.includes(".webm") || backgroundURL.includes("video")) && (
+                        <video
+                            src={backgroundURL}
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                zIndex: 0,
+                                filter: "brightness(0.4)",
+                                pointerEvents: "none",
+                            }}
+                        />
+                    )}
                     <div className={styles.profile}>
                         <UserIcon
                             size={80}
