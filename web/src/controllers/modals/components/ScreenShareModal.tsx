@@ -31,15 +31,15 @@ const Container = styled.div`
     font-family: inherit;
     animation: fadeIn 0.15s ease-out;
 
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: scale(0.96);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
+    @keyframes fadeIn {\
+        from {\
+            opacity: 0;\
+            transform: scale(0.96);\
+        }\
+        to {\
+            opacity: 1;\
+            transform: scale(1);\
+        }\
     }
 `;
 
@@ -50,11 +50,11 @@ const Header = styled.div`
     justify-content: space-between;
     border-bottom: 1px solid var(--secondary-background, #2b2d31);
 
-    h2 {
-        margin: 0;
-        font-size: 20px;
-        font-weight: 700;
-        color: #ffffff;
+    h2 {\
+        margin: 0;\
+        font-size: 20px;\
+        font-weight: 700;\
+        color: #ffffff;\
     }
 
     button.close-btn {
@@ -282,13 +282,26 @@ const EmptyNotice = styled.div`
     font-size: 14px;
 `;
 
+export type ResolutionOption = "480" | "720" | "1080" | "2160";
+export type FpsOption = "15" | "30" | "60";
+
+const RESOLUTION_SPECS: Record<
+    ResolutionOption,
+    { width: number; height: number }
+> = {
+    "480": { width: 854, height: 480 },
+    "720": { width: 1280, height: 720 },
+    "1080": { width: 1920, height: 1080 },
+    "2160": { width: 3840, height: 2160 },
+};
+
 export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const [tab, setTab] = useState<"screens" | "windows">("screens");
     const [sources, setSources] = useState<ScreenSource[]>([]);
     const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [resolution, setResolution] = useState<"720" | "480">("720");
-    const [fps, setFps] = useState<"30" | "15">("30");
+    const [resolution, setResolution] = useState<ResolutionOption>("720");
+    const [fps, setFps] = useState<FpsOption>("30");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const hasNativePicker = Boolean(
@@ -328,10 +341,12 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const handleShare = async () => {
         setIsSubmitting(true);
         try {
-            const resObj =
-                resolution === "720"
-                    ? { width: 1280, height: 720, frameRate: Number(fps) }
-                    : { width: 854, height: 480, frameRate: Number(fps) };
+            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["720"];
+            const resObj = {
+                width: spec.width,
+                height: spec.height,
+                frameRate: Number(fps),
+            };
 
             if (hasNativePicker && selectedSourceId && window.native.selectScreenSource) {
                 await window.native.selectScreenSource(selectedSourceId, true);
@@ -438,7 +453,17 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                             <OptionButton
                                 active={resolution === "720"}
                                 onClick={() => setResolution("720")}>
-                                720p (макс.)
+                                720p
+                            </OptionButton>
+                            <OptionButton
+                                active={resolution === "1080"}
+                                onClick={() => setResolution("1080")}>
+                                FHD (1080p)
+                            </OptionButton>
+                            <OptionButton
+                                active={resolution === "2160"}
+                                onClick={() => setResolution("2160")}>
+                                UHD (4K)
                             </OptionButton>
                         </div>
                     </SettingsRow>
@@ -454,7 +479,12 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                             <OptionButton
                                 active={fps === "30"}
                                 onClick={() => setFps("30")}>
-                                30 FPS (макс.)
+                                30 FPS
+                            </OptionButton>
+                            <OptionButton
+                                active={fps === "60"}
+                                onClick={() => setFps("60")}>
+                                60 FPS
                             </OptionButton>
                         </div>
                     </SettingsRow>

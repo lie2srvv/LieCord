@@ -289,13 +289,13 @@ export default observer(({ id }: Props) => {
                 )}
                 {voiceState.isDeaf() ? (
                     <Tooltip content={"Undeafen"} placement={"top"}>
-                        <Button onClick={() => voiceState.stopDeafen()}>
+                        <Button onClick={voiceState.stopDeafen}>
                             <VolumeMute width={20} />
                         </Button>
                     </Tooltip>
                 ) : (
                     <Tooltip content={"Deafen"} placement={"top"}>
-                        <Button onClick={() => voiceState.startDeafen()}>
+                        <Button onClick={voiceState.startDeafen}>
                             <VolumeFull width={20} />
                         </Button>
                     </Tooltip>
@@ -312,15 +312,7 @@ export default observer(({ id }: Props) => {
                     <Tooltip content={"Share screen"} placement={"top"}>
                         <Button
                             onClick={() => {
-                                if (
-                                    typeof window !== "undefined" &&
-                                    window.native &&
-                                    typeof window.native.getScreenSources === "function"
-                                ) {
-                                    modalController.push({ type: "screen_share" });
-                                } else {
-                                    voiceState.startProducing("screen");
-                                }
+                                modalController.push({ type: "screen_share" });
                             }}>
                             <Desktop width={20} />
                         </Button>

@@ -10,6 +10,7 @@ import {
     ScreenShareCaptureOptions,
     TrackProcessor,
     AudioProcessorOptions,
+    TrackPublishOptions,
 } from "livekit-client";
 import { ProduceType, VoiceUser } from "./Types";
 
@@ -454,12 +455,36 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     resolution: captureResolution,
                 };
 
+                // Compute optimal encoding bitrate based on target resolution and framerate
+                const maxDim = Math.max(captureResolution.width, captureResolution.height);
+                const fps = captureResolution.frameRate || 30;
+                let maxBitrate = 2_500_000;
+                if (maxDim <= 854) {
+                    maxBitrate = fps > 30 ? 1_500_000 : 1_000_000;
+                } else if (maxDim <= 1280) {
+                    maxBitrate = fps > 30 ? 3_500_000 : 2_200_000;
+                } else if (maxDim <= 1920) {
+                    maxBitrate = fps > 30 ? 7_000_000 : 4_500_000;
+                } else {
+                    // UHD 4K
+                    maxBitrate = fps > 30 ? 16_000_000 : 10_000_000;
+                }
+
+                const publishOpts: TrackPublishOptions = {
+                    screenShareEncoding: {
+                        maxBitrate,
+                        maxFramerate: fps,
+                    },
+                    simulcast: false, // Ensure full original stream is transmitted directly
+                };
+
                 let pub;
                 try {
                     // Try with audio first if requested
                     pub = await this.room.localParticipant.setScreenShareEnabled(
                         true,
                         captureOpts,
+                        publishOpts,
                     );
                 } catch (audioErr) {
                     console.warn(
@@ -472,6 +497,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                             audio: false,
                             resolution: captureResolution,
                         },
+                        publishOpts,
                     );
                 }
 
