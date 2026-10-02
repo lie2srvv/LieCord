@@ -60,6 +60,22 @@ class VoiceStateReference {
         this.activeSpeakers = new Set();
         this.videoTracks = new Map();
 
+        if (typeof window !== "undefined") {
+            try {
+                const savedMuted = localStorage.getItem("liecord_mic_muted");
+                if (savedMuted !== null) {
+                    this.isMuted = savedMuted === "true";
+                }
+                const savedDeafened = localStorage.getItem("liecord_deafened");
+                if (savedDeafened !== null) {
+                    this.isDeafened = savedDeafened === "true";
+                    if (this.isDeafened) {
+                        this.isMuted = true;
+                    }
+                }
+            } catch (_) {}
+        }
+
         this.syncState = this.syncState.bind(this);
         this.connect = this.connect.bind(this);
         this.disconnect = this.disconnect.bind(this);
@@ -73,6 +89,15 @@ class VoiceStateReference {
             incomingCallTimer: false,
             ringtoneInterval: false,
         });
+    }
+
+    private persistVoiceSettings() {
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem("liecord_mic_muted", String(this.isMuted));
+                localStorage.setItem("liecord_deafened", String(this.isDeafened));
+            } catch (_) {}
+        }
     }
 
     getChannelParticipants(channelId: string): ChannelVoiceParticipant[] {
@@ -274,8 +299,9 @@ class VoiceStateReference {
         this.screenProducing = this.client.screenProducer !== undefined;
         this.isDeafened = this.client.isDeaf;
 
-        if (this.roomId) {
+        if (this.roomId && !this.connecting) {
             this.isMuted = !this.audioProducing;
+            this.persistVoiceSettings();
         }
     }
 
@@ -287,6 +313,8 @@ class VoiceStateReference {
         try {
             const { default: VoiceClient } = await import("./VoiceClient");
             const client = new VoiceClient();
+            client.isDeaf = this.isDeafened;
+            client.isMuted = this.isMuted || this.isDeafened;
 
             client.on("startProduce", this.syncState);
             client.on("stopProduce", this.syncState);
@@ -325,10 +353,15 @@ class VoiceStateReference {
 
             if (this.status !== VoiceStatus.CONNECTING) return;
 
-            // Pass deafen state before connect so it doesn't auto-produce mic
+            // Pass deafen & mute preferences to voice client
+            const shouldBeMuted = this.isMuted || this.isDeafened;
             this.client.isDeaf = this.isDeafened;
+            this.client.isMuted = shouldBeMuted;
 
-            await this.client.connect(call.url, channel._id, call.token);
+            await this.client.connect(call.url, channel._id, call.token, {
+                isDeaf: this.isDeafened,
+                isMuted: shouldBeMuted,
+            });
 
             runInAction(() => {
                 this.status = VoiceStatus.CONNECTED;
@@ -341,9 +374,6 @@ class VoiceStateReference {
 
             if (this.isDeafened) {
                 this.client.setDeaf(true);
-                await this.client.stopProduce("audio");
-            } else if (this.isMuted) {
-                await this.client.stopProduce("audio");
             }
         } catch (err) {
             console.error("Failed to join voice call:", err);
@@ -367,9 +397,7 @@ class VoiceStateReference {
         this.roomId = null;
         this.audioProducing = false;
         this.screenProducing = false;
-        this.isDeafened = false;
-        this.isMuted = false;
-        this.wasMutedBeforeDeafen = false;
+        // User's chosen isMuted and isDeafened settings are preserved!
 
         this.client?.disconnect();
         this.syncState();
@@ -404,6 +432,7 @@ class VoiceStateReference {
         this.isDeafened = true;
         this.wasMutedBeforeDeafen = this.isMuted;
         this.isMuted = true;
+        this.persistVoiceSettings();
 
         if (this.client) {
             this.client.setDeaf(true);
@@ -428,6 +457,7 @@ class VoiceStateReference {
                 await this.client.startProduce({} as any, "audio");
             }
         }
+        this.persistVoiceSettings();
         this.syncState();
     }
 
@@ -451,6 +481,7 @@ class VoiceStateReference {
                 await this.client.stopProduce("audio");
             }
         }
+        this.persistVoiceSettings();
         this.syncState();
     }
 
@@ -463,6 +494,7 @@ class VoiceStateReference {
                     this.client.setDeaf(false);
                 }
             }
+            this.persistVoiceSettings();
             if (this.client && this.roomId) {
                 if (this.client.audioProducer === undefined) {
                     await this.client.startProduce({} as any, "audio");
@@ -478,6 +510,7 @@ class VoiceStateReference {
     @action async stopProducing(type: ProduceType) {
         if (type === "audio") {
             this.isMuted = true;
+            this.persistVoiceSettings();
             if (this.client && this.roomId) {
                 await this.client.stopProduce("audio");
             }

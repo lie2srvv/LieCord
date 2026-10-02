@@ -178,6 +178,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public room?: Room;
     public roomId?: string;
     public isDeaf: boolean = false;
+    public isMuted: boolean = false;
     public participants: Map<string, VoiceUser> = new Map();
     public consumers: Map<string, any> = new Map();
     public audioProducer?: any;
@@ -223,9 +224,23 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         }
     }
 
-    async connect(url: string, roomId: string, token: string) {
+    async connect(
+        url: string,
+        roomId: string,
+        token: string,
+        initialOptions?: { isMuted?: boolean; isDeaf?: boolean },
+    ) {
         if (this.room) {
             this.disconnect();
+        }
+
+        if (initialOptions) {
+            if (typeof initialOptions.isMuted === "boolean") {
+                this.isMuted = initialOptions.isMuted;
+            }
+            if (typeof initialOptions.isDeaf === "boolean") {
+                this.isDeaf = initialOptions.isDeaf;
+            }
         }
 
         this.roomId = roomId;
@@ -241,23 +256,6 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         room.on(RoomEvent.Connected, () => {
             this.emit("ready");
-            if (!this.isDeaf) {
-                room.localParticipant
-                    .setMicrophoneEnabled(
-                        true,
-                        DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
-                    )
-                    .then(async (pub) => {
-                        if (pub) {
-                            this.audioProducer = pub;
-                            await this.applyAudioEnhancements(pub);
-                            this.emit("startProduce", "audio");
-                        }
-                    })
-                    .catch((err) => {
-                        console.warn("Could not auto-enable microphone:", err);
-                    });
-            }
         });
 
         room.on(RoomEvent.Disconnected, () => {
@@ -383,10 +381,31 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     this.videoTracks.delete(this.room.localParticipant.identity);
                 }
                 this.emit("stopProduce", "screen");
+            } else if (publication.source === Track.Source.Microphone) {
+                this.audioProducer = undefined;
+                this.emit("stopProduce", "audio");
             }
         });
 
         await room.connect(url, token);
+
+        // Auto-enable microphone if user is not deafened and not muted
+        if (!this.isDeaf && !this.isMuted) {
+            try {
+                const pub = await room.localParticipant.setMicrophoneEnabled(
+                    true,
+                    DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+                );
+                if (pub) {
+                    this.audioProducer = pub;
+                    await this.applyAudioEnhancements(pub);
+                    this.emit("startProduce", "audio");
+                }
+            } catch (err) {
+                console.warn("Could not auto-enable microphone:", err);
+                this.isMuted = true;
+            }
+        }
     }
 
     disconnect() {
@@ -407,12 +426,15 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.videoTracks.clear();
         this.audioProducer = undefined;
         this.screenProducer = undefined;
-        this.isDeaf = false;
+        // Keep isDeaf and isMuted intact across calls
         this.emit("close");
     }
 
     setDeaf(deaf: boolean) {
         this.isDeaf = deaf;
+        if (deaf) {
+            this.isMuted = true;
+        }
         document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
             const audioEl = el as HTMLAudioElement;
             audioEl.muted = deaf;
@@ -430,6 +452,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         if (!this.room) return;
         if (type === "audio") {
             try {
+                this.isMuted = false;
                 const pub = await this.room.localParticipant.setMicrophoneEnabled(
                     true,
                     DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
@@ -539,6 +562,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     async stopProduce(type: ProduceType) {
         if (!this.room) return;
         if (type === "audio") {
+            this.isMuted = true;
             try {
                 await this.room.localParticipant.setMicrophoneEnabled(false);
             } catch (err) {

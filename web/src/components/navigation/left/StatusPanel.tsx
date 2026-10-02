@@ -69,8 +69,7 @@ const VoiceConnectedBar = styled.div`
         transition: background 0.15s ease;
 
         &:hover {
-            background: rgba(231, 76, 60, 0.2);
-        }
+            background: rgba(231, 76, 60, 0.2);\n        }
     }
 `;
 
@@ -143,7 +142,7 @@ export const StatusPanel = observer(() => {
     const user = client.user;
 
     const isConnected = !!voiceState.roomId;
-    const isMicMuted = voiceState.roomId ? !voiceState.audioProducing : voiceState.isMuted;
+    const isMicMuted = voiceState.isMuted;
     const isDeafened = voiceState.isDeafened;
 
     const activeChannel = voiceState.roomId
