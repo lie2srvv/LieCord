@@ -3,42 +3,78 @@ import { Client } from "discord-rpc";
 import { config } from "./config";
 
 // internal state
-let rpc: Client;
+let rpc: Client | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
 
 export async function initDiscordRpc() {
   if (!config.discordRpc) return;
 
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
   // clean up existing client if one exists
-  rpc?.removeAllListeners();
+  if (rpc) {
+    try {
+      rpc.removeAllListeners();
+      await rpc.destroy().catch(() => {});
+    } catch (_) {}
+    rpc = null;
+  }
 
   try {
-    rpc = new Client({ transport: "ipc" });
+    const client = new Client({ transport: "ipc" });
+    rpc = client;
 
-    rpc.on("ready", () =>
-      rpc.setActivity({
-        state: "stoat.chat",
-        details: "Chatting with others",
+    client.on("ready", () => {
+      client.setActivity({
+        state: "cord.lie2srvv.com",
+        details: "Общается в LieCord",
         largeImageKey: "qr",
-        largeImageText: "Join LieCord!",
+        largeImageText: "LieCord",
         buttons: [
           {
-            label: "Join LieCord",
-            url: "https://stoat.chat/",
+            label: "Присоединиться к LieCord",
+            url: "https://cord.lie2srvv.com/",
           },
         ],
-      }),
-    );
+      }).catch(() => {});
+    });
 
-    rpc.on("disconnected", reconnect);
+    client.on("error", () => {
+      // suppress unhandled ipc socket error
+    });
 
-    rpc.login({ clientId: "872068124005007420" });
+    client.on("disconnected", () => {
+      scheduleReconnect();
+    });
+
+    client.login({ clientId: "872068124005007420" }).catch(() => {
+      scheduleReconnect();
+    });
   } catch (err) {
-    reconnect();
+    scheduleReconnect();
   }
 }
 
-const reconnect = () => setTimeout(() => initDiscordRpc(), 1e4);
+const scheduleReconnect = () => {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    initDiscordRpc();
+  }, 3e4);
+};
 
 export async function destroyDiscordRpc() {
-  rpc?.destroy();
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (rpc) {
+    try {
+      await rpc.destroy().catch(() => {});
+    } catch (_) {}
+    rpc = null;
+  }
 }
