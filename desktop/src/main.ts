@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { IUpdateInfo, updateElectronApp } from "update-electron-app";
 
-import { BrowserWindow, Notification, app, shell } from "electron";
+import { BrowserWindow, Notification, app, shell, systemPreferences } from "electron";
 import started from "electron-squirrel-startup";
 
 import { initAutoLaunch } from "./native/autoLaunch";
@@ -58,7 +58,24 @@ if (acquiredLock) {
   // updateElectronApp({ onNotifyUser });
 
   // create and configure the app when electron is ready
-  app.on("ready", () => {
+  app.on("ready", async () => {
+    // On macOS, request microphone access BEFORE creating the window
+    // This ensures the TCC permission dialog appears immediately on first launch
+    if (process.platform === "darwin") {
+      try {
+        const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+        console.log(`[macOS] Microphone status on startup: ${micStatus}`);
+        if (micStatus === "not-determined") {
+          const granted = await systemPreferences.askForMediaAccess("microphone");
+          console.log(`[macOS] Microphone permission prompt result: ${granted}`);
+        } else if (micStatus === "denied") {
+          console.warn("[macOS] Microphone access is denied. User must enable it in System Preferences > Privacy & Security > Microphone.");
+        }
+      } catch (err) {
+        console.error("[macOS] Failed to request microphone access on startup:", err);
+      }
+    }
+
     // create window and application contexts
     createMainWindow();
 

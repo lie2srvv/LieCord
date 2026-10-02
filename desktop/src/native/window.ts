@@ -48,18 +48,6 @@ export function createMainWindow() {
     app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
   const isMacOS = process.platform === "darwin";
 
-  if (isMacOS) {
-    // Proactively check / prompt microphone permission on macOS
-    systemPreferences
-      .askForMediaAccess("microphone")
-      .then((granted) => {
-        console.log(`[macOS] Initial microphone access: ${granted ? "granted" : "not granted"}`);
-      })
-      .catch((err) => {
-        console.warn("[macOS] askForMediaAccess startup check failed:", err);
-      });
-  }
-
   mainWindow = new BrowserWindow({
     minWidth: 300,
     minHeight: 300,
@@ -268,8 +256,13 @@ export function createMainWindow() {
     if (process.platform === "darwin") {
       try {
         const status = systemPreferences.getMediaAccessStatus("microphone");
-        if (status === "not-determined") {
-          return await systemPreferences.askForMediaAccess("microphone");
+        console.log("[macOS] requestMicrophoneAccess IPC - current status:", status);
+        if (status === "not-determined" || status === "denied") {
+          // Always attempt to ask - macOS will show the dialog if not-determined
+          // If denied, this returns false but logs a warning
+          const granted = await systemPreferences.askForMediaAccess("microphone");
+          console.log("[macOS] requestMicrophoneAccess IPC - askForMediaAccess result:", granted);
+          return granted;
         }
         return status === "granted";
       } catch (err) {
