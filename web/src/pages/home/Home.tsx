@@ -23,8 +23,6 @@ import { isTouchscreenDevice } from "../../lib/isTouchscreenDevice";
 
 import { useApplicationState } from "../../mobx/State";
 
-import wideSVG from "/assets/wide.svg";
-
 import { PageHeader } from "../../components/ui/Header";
 import { useClient } from "../../controllers/client/ClientController";
 import { modalController } from "../../controllers/modals/ModalController";
@@ -39,6 +37,28 @@ const Overlay = styled.div`
 
     .content {
         z-index: 1;
+    }
+`;
+
+const LogoBrand = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+
+    img {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: contain;
+    }
+
+    span {
+        font-size: 48px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: var(--foreground);
+        line-height: 1;
     }
 `;
 
@@ -106,12 +126,18 @@ export default observer(() => {
                     <div className={styles.homeScreen}>
                         <h3>
                             <Text id="app.special.modals.onboarding.welcome" />
-                            <br />
-                            <img
-                                src={wideSVG}
-                                style={{ filter: "var(--logo-filter)" }}
-                            />
                         </h3>
+                        <LogoBrand>
+                            <img
+                                src="/assets/logo_round.png"
+                                alt="LieCord"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                            />
+                            <span>LieCord</span>
+                        </LogoBrand>
+                        <div style={{ height: "24px" }} />
                         <div className={styles.actions}>
                             <a
                                 onClick={() =>
