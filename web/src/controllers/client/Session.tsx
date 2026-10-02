@@ -270,4 +270,12 @@ export default class Session {
             }
         }
     }
+
+    /**
+     * Whether we are ready to render.
+     * @returns Boolean
+     */
+    @computed get ready() {
+        return !!this.client?.user;
+    }
 }

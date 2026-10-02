@@ -63,6 +63,7 @@ export function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: true,
+      devTools: true,
     },
   });
 
@@ -88,12 +89,30 @@ export function createMainWindow() {
     mainWindow.maximize();
   }
 
+  // Forward console messages to terminal for easy debugging
+  mainWindow.webContents.on(
+    "console-message",
+    (_event, level, message, line, sourceId) => {
+      console.log(`[Renderer L${level}]: ${message} (${sourceId}:${line})`);
+    },
+  );
+
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL) => {
+      console.error(
+        `[Renderer Load Failed]: ${errorCode} ${errorDescription} (${validatedURL})`,
+      );
+    },
+  );
+
+  // Clear any stale Service Workers or cache to guarantee fresh bundles
+  mainWindow.webContents.session.clearStorageData({
+    storages: ['serviceworkers', 'cachestorage']
+  }).catch(() => {});
+
   // load the remote client
-  mainWindow.loadURL(BUILD_URL.toString()).then(() => {
-    // Workaround for https://github.com/electron/electron/issues/45138
-    // when using web contents in service workers
-    mainWindow.webContents.reload();
-  });
+  mainWindow.loadURL(BUILD_URL.toString());
 
   // hide window when closed (if minimise to tray is enabled)
   mainWindow.on("close", (event) => {
@@ -123,6 +142,17 @@ export function createMainWindow() {
 
   // handle shortcuts
   mainWindow.webContents.on("before-input-event", (event, input) => {
+    // DevTools: F12 or Ctrl+Shift+I
+    if (
+      input.key === "F12" ||
+      (input.control && input.shift && input.key.toLowerCase() === "i")
+    ) {
+      if (input.type === "keyDown") {
+        mainWindow.webContents.toggleDevTools();
+      }
+      return;
+    }
+
     if (input.control && (input.key === "=" || input.key === "+")) {
       event.preventDefault();
       mainWindow.webContents.setZoomLevel(
@@ -137,6 +167,13 @@ export function createMainWindow() {
       event.preventDefault();
       mainWindow.webContents.setZoomLevel(0);
     } else if (
+      (input.control || input.meta) &&
+      input.shift &&
+      input.key.toLowerCase() === "r"
+    ) {
+      event.preventDefault();
+      mainWindow.webContents.reloadIgnoringCache();
+    } else if (
       input.key === "F5" ||
       ((input.control || input.meta) && input.key.toLowerCase() === "r")
     ) {
@@ -146,7 +183,10 @@ export function createMainWindow() {
   });
 
   // synchronize configuration on client load
-  mainWindow.webContents.on("did-finish-load", () => config.sync());
+  mainWindow.webContents.on("did-finish-load", () => {
+    config.sync();
+
+  });
 
   // context menu for spellcheck
   mainWindow.webContents.on("context-menu", (_, params) => {
