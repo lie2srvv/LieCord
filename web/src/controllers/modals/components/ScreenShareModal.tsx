@@ -108,8 +108,7 @@ const SourcesGrid = styled.div`
     max-height: 260px;
     overflow-y: auto;
 
-    &::-webkit-scrollbar {
-        width: 8px;
+    &::-webkit-scrollbar {\n        width: 8px;
     }
     &::-webkit-scrollbar-track {
         background: transparent;
@@ -304,6 +303,7 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const [loading, setLoading] = useState(false);
     const [resolution, setResolution] = useState<ResolutionOption>("720");
     const [fps, setFps] = useState<FpsOption>("30");
+    const [shareAudio, setShareAudio] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const hasNativePicker = Boolean(
@@ -351,12 +351,12 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
             };
 
             if (hasNativePicker && selectedSourceId && window.native.selectScreenSource) {
-                await window.native.selectScreenSource(selectedSourceId, true);
+                await window.native.selectScreenSource(selectedSourceId, shareAudio);
             }
 
             await voiceState.startProducing("screen", {
                 resolution: resObj,
-                audio: true,
+                audio: shareAudio,
             });
 
             props.onClose();
@@ -495,6 +495,22 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                             </OptionButton>
                         </div>
                     </SettingsRow>
+
+                    <SettingsRow>
+                        <div className="label">Звук трансляции</div>
+                        <div className="options">
+                            <OptionButton
+                                active={shareAudio}
+                                onClick={() => setShareAudio(true)}>
+                                Со звуком
+                            </OptionButton>
+                            <OptionButton
+                                active={!shareAudio}
+                                onClick={() => setShareAudio(false)}>
+                                Без звука
+                            </OptionButton>
+                        </div>
+                    </SettingsRow>
                 </SettingsSection>
 
                 <Footer>
@@ -512,4 +528,3 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
         </Backdrop>
     );
 }
-

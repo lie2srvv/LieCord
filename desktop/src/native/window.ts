@@ -185,11 +185,14 @@ export function createMainWindow() {
   // synchronize configuration on client load
   mainWindow.webContents.on("did-finish-load", () => {
     config.sync();
-
   });
 
-  // context menu for spellcheck
+  // context menu for spellcheck (only shown when right-clicking a misspelled word in an editable field)
   mainWindow.webContents.on("context-menu", (_, params) => {
+    if (!params.isEditable || (!params.misspelledWord && params.dictionarySuggestions.length === 0)) {
+      return;
+    }
+
     const menu = new Menu();
 
     // Add each spelling suggestion
@@ -215,16 +218,6 @@ export function createMainWindow() {
       );
     }
 
-    menu.append(
-      new MenuItem({
-        label: "Toggle spellcheck",
-        click() {
-          config.spellchecker = !config.spellchecker;
-        },
-      }),
-    );
-
-    // show menu if we've generated enough entries
     if (menu.items.length > 0) {
       menu.popup();
     }
