@@ -302,8 +302,8 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const [sources, setSources] = useState<ScreenSource[]>([]);
     const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [resolution, setResolution] = useState<ResolutionOption>("1440");
-    const [fps, setFps] = useState<FpsOption>("60");
+    const [resolution, setResolution] = useState<ResolutionOption>("720");
+    const [fps, setFps] = useState<FpsOption>("30");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const hasNativePicker = Boolean(
@@ -343,7 +343,7 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const handleShare = async () => {
         setIsSubmitting(true);
         try {
-            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["1440"];
+            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["720"];
             const resObj = {
                 width: spec.width,
                 height: spec.height,
@@ -448,6 +448,11 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                         <div className="label">Разрешение</div>
                         <div className="options">
                             <OptionButton
+                                active={resolution === "480"}
+                                onClick={() => setResolution("480")}>
+                                480p
+                            </OptionButton>
+                            <OptionButton
                                 active={resolution === "720"}
                                 onClick={() => setResolution("720")}>
                                 720p
@@ -507,3 +512,4 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
         </Backdrop>
     );
 }
+

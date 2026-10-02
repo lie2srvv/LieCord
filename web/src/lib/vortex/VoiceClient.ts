@@ -446,9 +446,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         } else if (type === "screen") {
             try {
                 const captureResolution = screenOpts?.resolution ?? {
-                    width: 2560,
-                    height: 1440,
-                    frameRate: 60,
+                    width: 1280,
+                    height: 720,
+                    frameRate: 30,
                 };
                 const captureOpts: ScreenShareCaptureOptions = {
                     audio: screenOpts?.audio !== false,
