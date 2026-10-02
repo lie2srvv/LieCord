@@ -9,6 +9,7 @@ import {
   ipcMain,
   nativeImage,
   session,
+  systemPreferences,
 } from "electron";
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
@@ -46,6 +47,18 @@ export function createMainWindow() {
   const startHidden =
     app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
   const isMacOS = process.platform === "darwin";
+
+  if (isMacOS) {
+    // Proactively check / prompt microphone permission on macOS
+    systemPreferences
+      .askForMediaAccess("microphone")
+      .then((granted) => {
+        console.log(`[macOS] Initial microphone access: ${granted ? "granted" : "not granted"}`);
+      })
+      .catch((err) => {
+        console.warn("[macOS] askForMediaAccess startup check failed:", err);
+      });
+  }
 
   mainWindow = new BrowserWindow({
     minWidth: 300,
@@ -251,9 +264,25 @@ export function createMainWindow() {
     },
   );
 
+  ipcMain.handle("requestMicrophoneAccess", async () => {
+    if (process.platform === "darwin") {
+      try {
+        const status = systemPreferences.getMediaAccessStatus("microphone");
+        if (status === "not-determined") {
+          return await systemPreferences.askForMediaAccess("microphone");
+        }
+        return status === "granted";
+      } catch (err) {
+        console.error("Failed to ask for microphone access:", err);
+        return false;
+      }
+    }
+    return true;
+  });
+
   // Automatically grant media & notification permissions without repeated prompts
   session.defaultSession.setPermissionRequestHandler(
-    (webContents, permission, callback) => {
+    async (webContents, permission, callback) => {
       const allowed = [
         "media",
         "audio-capture",
@@ -261,7 +290,42 @@ export function createMainWindow() {
         "display-capture",
         "notifications",
       ];
-      callback(allowed.includes(permission));
+      if (!allowed.includes(permission)) {
+        return callback(false);
+      }
+
+      if (process.platform === "darwin") {
+        if (permission === "media" || permission === "audio-capture") {
+          try {
+            const status = systemPreferences.getMediaAccessStatus("microphone");
+            if (status === "not-determined") {
+              const granted = await systemPreferences.askForMediaAccess("microphone");
+              return callback(granted);
+            } else if (status === "denied" || status === "restricted") {
+              return callback(false);
+            }
+            return callback(true);
+          } catch (e) {
+            console.error("[macOS Permission Error - microphone]:", e);
+          }
+        }
+        if (permission === "video-capture") {
+          try {
+            const status = systemPreferences.getMediaAccessStatus("camera");
+            if (status === "not-determined") {
+              const granted = await systemPreferences.askForMediaAccess("camera");
+              return callback(granted);
+            } else if (status === "denied" || status === "restricted") {
+              return callback(false);
+            }
+            return callback(true);
+          } catch (e) {
+            console.error("[macOS Permission Error - camera]:", e);
+          }
+        }
+      }
+
+      callback(true);
     },
   );
 
@@ -274,7 +338,15 @@ export function createMainWindow() {
         "display-capture",
         "notifications",
       ];
-      return allowed.includes(permission);
+      if (!allowed.includes(permission)) return false;
+      if (process.platform === "darwin") {
+        if (permission === "media" || permission === "audio-capture") {
+          const status = systemPreferences.getMediaAccessStatus("microphone");
+          if (status === "denied" || status === "restricted") return false;
+          return true;
+        }
+      }
+      return true;
     },
   );
 

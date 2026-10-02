@@ -392,6 +392,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         // Auto-enable microphone if user is not deafened and not muted
         if (!this.isDeaf && !this.isMuted) {
             try {
+                if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+                    await (window as any).native.requestMicrophoneAccess();
+                }
                 const pub = await room.localParticipant.setMicrophoneEnabled(
                     true,
                     DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
@@ -452,6 +455,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         if (!this.room) return;
         if (type === "audio") {
             try {
+                if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+                    await (window as any).native.requestMicrophoneAccess();
+                }
                 this.isMuted = false;
                 const pub = await this.room.localParticipant.setMicrophoneEnabled(
                     true,

@@ -33,6 +33,9 @@ export function Audio() {
 
     const askOrGetPermission = async () => {
         try {
+            if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+                await (window as any).native.requestMicrophoneAccess();
+            }
             const result =
                 await navigator.mediaDevices.getUserMedia(constraints);
 

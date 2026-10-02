@@ -105,11 +105,19 @@ const config: ForgeConfig = {
     asar: true,
     name: STRINGS.name,
     executableName: STRINGS.execName,
-    icon:
-      process.platform === "darwin"
-        ? `${ASSET_DIR}/icon.icns`
-        : `${ASSET_DIR}/icon`,
-    // extraResource: []
+    appBundleId: "com.lie2srvv.liecord",
+    appCategoryType: "public.app-category.social-networking",
+    icon: path.resolve(__dirname, `${ASSET_DIR}/icon`),
+    extendInfo: {
+      CFBundleDisplayName: "LieCord",
+      CFBundleName: "LieCord",
+      CFBundleIdentifier: "com.lie2srvv.liecord",
+      CFBundleIconFile: "icon.icns",
+      NSMicrophoneUsageDescription: "LieCord requires microphone access for voice chat and calls.",
+      NSCameraUsageDescription: "LieCord requires camera access for video calls.",
+      NSScreenCaptureUsageDescription: "LieCord requires screen capture access for screen sharing.",
+      NSAudioCaptureUsageDescription: "LieCord requires audio capture access for voice chat.",
+    },
   },
   rebuildConfig: {},
   makers,
@@ -133,6 +141,19 @@ const config: ForgeConfig = {
           path.join(buildPath, "node_modules/node-pipewire/package.json"),
           { recursive: true },
         );
+      }
+    },
+    postPackage: async (_config, packageResult) => {
+      if (packageResult.platform === "darwin") {
+        for (const outDir of packageResult.outputPaths) {
+          const appDir = path.join(outDir, "LieCord.app");
+          const resourcesDir = path.join(appDir, "Contents/Resources");
+          const iconSrc = path.resolve(__dirname, `${ASSET_DIR}/icon.icns`);
+          if (fs.existsSync(iconSrc) && fs.existsSync(resourcesDir)) {
+            fs.copyFileSync(iconSrc, path.join(resourcesDir, "icon.icns"));
+            fs.copyFileSync(iconSrc, path.join(resourcesDir, "electron.icns"));
+          }
+        }
       }
     },
   },
@@ -169,6 +190,7 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      resetAdHocDarwinSignature: process.platform === "darwin",
     }),
   ],
   publishers: [
