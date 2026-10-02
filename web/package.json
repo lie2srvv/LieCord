@@ -11,7 +11,8 @@
         "fmt": "prettier --write 'src/**/*.{js,jsx,ts,tsx}'",
         "typecheck": "tsc --noEmit",
         "start": "sirv dist --cors --single --host",
-        "start:inject": "node scripts/inject.js && sirv dist_injected --cors --single --host"
+        "start:inject": "node scripts/inject.js && sirv dist_injected --cors --single --host",
+        "postinstall": "node scripts/patch-livekit.js"
     },
     "eslintConfig": {
         "parser": "@typescript-eslint/parser",

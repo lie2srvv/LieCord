@@ -14,6 +14,8 @@ web/node_modules/
 desktop/node_modules/
 desktop/out/
 desktop/.vite/
+build_artifacts/
+preload.js
 
 # Android build
 android/.gradle/
@@ -23,6 +25,7 @@ android/local.properties
 android/.idea/
 android/*.iml
 android/app/*.iml
+*.apk
 
 # Environment & Temp
 .env
@@ -30,3 +33,5 @@ android/app/*.iml
 *.pyc
 __pycache__/
 .DS_Store
+.vscode/
+create_user.py

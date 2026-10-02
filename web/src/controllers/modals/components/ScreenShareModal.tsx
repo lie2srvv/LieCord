@@ -19,7 +19,7 @@ const Backdrop = styled.div`
 `;
 
 const Container = styled.div`
-    width: 600px;
+    width: 620px;
     max-width: 90vw;
     background: var(--primary-background, #1e1f22);
     border-radius: 8px;
@@ -31,15 +31,15 @@ const Container = styled.div`
     font-family: inherit;
     animation: fadeIn 0.15s ease-out;
 
-    @keyframes fadeIn {\
-        from {\
-            opacity: 0;\
-            transform: scale(0.96);\
-        }\
-        to {\
-            opacity: 1;\
-            transform: scale(1);\
-        }\
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 `;
 
@@ -50,11 +50,11 @@ const Header = styled.div`
     justify-content: space-between;
     border-bottom: 1px solid var(--secondary-background, #2b2d31);
 
-    h2 {\
-        margin: 0;\
-        font-size: 20px;\
-        font-weight: 700;\
-        color: #ffffff;\
+    h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
     }
 
     button.close-btn {
@@ -209,6 +209,7 @@ const SettingsRow = styled.div`
         padding: 2px;
         border-radius: 6px;
         gap: 2px;
+        flex-wrap: wrap;
     }
 `;
 
@@ -216,9 +217,9 @@ const OptionButton = styled.button<{ active: boolean }>`
     background: ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
     color: ${(props) => (props.active ? "#ffffff" : "#949ba4")};
     border: none;
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
@@ -282,7 +283,7 @@ const EmptyNotice = styled.div`
     font-size: 14px;
 `;
 
-export type ResolutionOption = "480" | "720" | "1080" | "2160";
+export type ResolutionOption = "480" | "720" | "1080" | "1440" | "2160";
 export type FpsOption = "15" | "30" | "60";
 
 const RESOLUTION_SPECS: Record<
@@ -292,6 +293,7 @@ const RESOLUTION_SPECS: Record<
     "480": { width: 854, height: 480 },
     "720": { width: 1280, height: 720 },
     "1080": { width: 1920, height: 1080 },
+    "1440": { width: 2560, height: 1440 },
     "2160": { width: 3840, height: 2160 },
 };
 
@@ -300,8 +302,8 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const [sources, setSources] = useState<ScreenSource[]>([]);
     const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [resolution, setResolution] = useState<ResolutionOption>("720");
-    const [fps, setFps] = useState<FpsOption>("30");
+    const [resolution, setResolution] = useState<ResolutionOption>("1440");
+    const [fps, setFps] = useState<FpsOption>("60");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const hasNativePicker = Boolean(
@@ -341,7 +343,7 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const handleShare = async () => {
         setIsSubmitting(true);
         try {
-            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["720"];
+            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["1440"];
             const resObj = {
                 width: spec.width,
                 height: spec.height,
@@ -446,11 +448,6 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                         <div className="label">Разрешение</div>
                         <div className="options">
                             <OptionButton
-                                active={resolution === "480"}
-                                onClick={() => setResolution("480")}>
-                                480p
-                            </OptionButton>
-                            <OptionButton
                                 active={resolution === "720"}
                                 onClick={() => setResolution("720")}>
                                 720p
@@ -459,6 +456,11 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                 active={resolution === "1080"}
                                 onClick={() => setResolution("1080")}>
                                 FHD (1080p)
+                            </OptionButton>
+                            <OptionButton
+                                active={resolution === "1440"}
+                                onClick={() => setResolution("1440")}>
+                                2K (1440p)
                             </OptionButton>
                             <OptionButton
                                 active={resolution === "2160"}
@@ -496,10 +498,7 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                     </button>
                     <button
                         className="submit-btn"
-                        disabled={
-                            isSubmitting ||
-                            (hasNativePicker && !selectedSourceId && sources.length > 0)
-                        }
+                        disabled={isSubmitting || (hasNativePicker && !selectedSourceId)}
                         onClick={handleShare}>
                         {isSubmitting ? "Подключение..." : "В эфир"}
                     </button>

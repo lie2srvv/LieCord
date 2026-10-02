@@ -446,9 +446,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         } else if (type === "screen") {
             try {
                 const captureResolution = screenOpts?.resolution ?? {
-                    width: 1280,
-                    height: 720,
-                    frameRate: 30,
+                    width: 2560,
+                    height: 1440,
+                    frameRate: 60,
                 };
                 const captureOpts: ScreenShareCaptureOptions = {
                     audio: screenOpts?.audio !== false,
@@ -458,17 +458,19 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 // Compute optimal encoding bitrate based on target resolution and framerate
                 const maxDim = Math.max(captureResolution.width, captureResolution.height);
                 const fps = captureResolution.frameRate || 30;
-                let maxBitrate = 2_500_000;
+                let maxBitrate = 4_000_000;
                 if (maxDim <= 854) {
                     maxBitrate = fps > 30 ? 1_200_000 : 800_000;
                 } else if (maxDim <= 1280) {
                     maxBitrate = fps > 30 ? 3_000_000 : 2_000_000;
                 } else if (maxDim <= 1920) {
-                    maxBitrate = fps > 30 ? 5_000_000 : 3_500_000;
+                    maxBitrate = fps > 30 ? 5_500_000 : 3_800_000;
+                } else if (maxDim <= 2560) {
+                    // 2K (1440p)
+                    maxBitrate = fps > 30 ? 7_500_000 : 5_200_000;
                 } else {
-                    // UHD 4K: WebRTC over UDP chokes and drops audio if bitrate spikes to 10-16 Mbps.
-                    // Clamping to 5.5-6.0 Mbps gives crisp 4K text and stable audio/video RTC streams.
-                    maxBitrate = fps > 30 ? 6_000_000 : 4_500_000;
+                    // UHD 4K
+                    maxBitrate = fps > 30 ? 9_000_000 : 6_500_000;
                 }
 
                 const publishOpts: TrackPublishOptions = {
@@ -510,6 +512,20 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                             this.room.localParticipant.identity,
                             pub.track as any,
                         );
+                    }
+                    // Apply sender encoding parameters directly to guarantee bitrate & fps
+                    const sender = (pub as any).track?.sender || (pub as any).sender;
+                    if (sender && typeof sender.getParameters === "function") {
+                        try {
+                            const params = sender.getParameters();
+                            if (params.encodings && params.encodings.length > 0) {
+                                params.encodings[0].maxBitrate = maxBitrate;
+                                params.encodings[0].maxFramerate = fps;
+                                await sender.setParameters(params);
+                            }
+                        } catch (e) {
+                            console.warn("Could not set sender parameters:", e);
+                        }
                     }
                     this.emit("startProduce", "screen");
                 }
