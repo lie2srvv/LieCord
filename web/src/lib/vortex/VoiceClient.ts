@@ -263,6 +263,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 );
                 this.audioProducer = pub;
                 this.emit("startProduce", "audio");
+                if (typeof window !== "undefined") {
+                    window.localStorage.setItem("audioPermissionGranted", "true");
+                }
             } catch (err) {
                 console.error("Failed to enable microphone:", err);
             }

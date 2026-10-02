@@ -218,6 +218,33 @@ export function createMainWindow() {
     },
   );
 
+  // Automatically grant media & notification permissions without repeated prompts
+  session.defaultSession.setPermissionRequestHandler(
+    (webContents, permission, callback) => {
+      const allowed = [
+        "media",
+        "audio-capture",
+        "video-capture",
+        "display-capture",
+        "notifications",
+      ];
+      callback(allowed.includes(permission));
+    },
+  );
+
+  session.defaultSession.setPermissionCheckHandler(
+    (webContents, permission) => {
+      const allowed = [
+        "media",
+        "audio-capture",
+        "video-capture",
+        "display-capture",
+        "notifications",
+      ];
+      return allowed.includes(permission);
+    },
+  );
+
   // Create display media request handler with screen/window picker
   session.defaultSession.setDisplayMediaRequestHandler(
     async (request, callback) => {

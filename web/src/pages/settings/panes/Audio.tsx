@@ -11,13 +11,7 @@ import { I18nError } from "../../../context/Locale";
 
 import opusSVG from "../assets/opus_logo.svg";
 
-{
-    /*import OpusSVG from "../assets/opus_logo.svg";*/
-}
-
 const constraints = { audio: true };
-
-// TODO: do not rewrite this code until voice is rewritten!
 
 export function Audio() {
     const [mediaStream, setMediaStream] = useState<MediaStream | undefined>(
@@ -26,9 +20,15 @@ export function Audio() {
     const [mediaDevices, setMediaDevices] = useState<
         MediaDeviceInfo[] | undefined
     >(undefined);
-    const [permission, setPermission] = useState<PermissionState | undefined>(
-        undefined,
-    );
+    const [permission, setPermission] = useState<string | undefined>(() => {
+        if (
+            typeof window !== "undefined" &&
+            window.localStorage.getItem("audioPermissionGranted") === "true"
+        ) {
+            return "granted";
+        }
+        return undefined;
+    });
     const [error, setError] = useState<DOMException | undefined>(undefined);
 
     const askOrGetPermission = async () => {
@@ -37,24 +37,114 @@ export function Audio() {
                 await navigator.mediaDevices.getUserMedia(constraints);
 
             setMediaStream(result);
+            setPermission("granted");
+            setError(undefined);
+
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem("audioPermissionGranted", "true");
+            }
+
+            if (navigator.mediaDevices?.enumerateDevices) {
+                const devs = await navigator.mediaDevices.enumerateDevices();
+                setMediaDevices(devs);
+            }
         } catch (err) {
-            // The user has blocked the permission
             setError(err as DOMException);
+            setPermission("denied");
         }
 
         try {
             const { state } = await navigator.permissions.query({
-                // eslint-disable-next-line
-                // @ts-ignore: very few browsers accept this `PermissionName`, but it has been drafted in https://www.w3.org/TR/permissions/#powerful-features-registry
-                name: "microphone",
+                name: "microphone" as PermissionName,
             });
-
             setPermission(state);
-        } catch (err) {
-            // the browser might not support `query` functionnality or `PermissionName`
-            // nothing to do
+            if (state === "granted" && typeof window !== "undefined") {
+                window.localStorage.setItem("audioPermissionGranted", "true");
+            }
+        } catch {
+            // Permissions query might not be supported
         }
     };
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const checkPermissionAndDevices = async () => {
+            let isGranted =
+                typeof window !== "undefined" &&
+                window.localStorage.getItem("audioPermissionGranted") === "true";
+
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const queryRes = await navigator.permissions.query({
+                        name: "microphone" as PermissionName,
+                    });
+                    if (isMounted) {
+                        setPermission(queryRes.state);
+                        if (queryRes.state === "granted") {
+                            isGranted = true;
+                            window.localStorage.setItem("audioPermissionGranted", "true");
+                        }
+                    }
+                    queryRes.onchange = () => {
+                        if (isMounted) {
+                            setPermission(queryRes.state);
+                            if (queryRes.state === "granted") {
+                                window.localStorage.setItem("audioPermissionGranted", "true");
+                            }
+                        }
+                    };
+                } catch {
+                    // Ignore query unsupported
+                }
+            }
+
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                try {
+                    const devs = await navigator.mediaDevices.enumerateDevices();
+                    if (isMounted) {
+                        setMediaDevices(devs);
+                        if (devs.some((d) => d.kind === "audioinput" && d.label.length > 0)) {
+                            isGranted = true;
+                            setPermission("granted");
+                            window.localStorage.setItem("audioPermissionGranted", "true");
+                        }
+                    }
+                } catch (err) {
+                    if (isMounted) {
+                        setError(err as DOMException);
+                    }
+                }
+            }
+
+            if (isGranted && isMounted) {
+                setPermission("granted");
+            }
+        };
+
+        checkPermissionAndDevices();
+
+        const handleDeviceChange = () => {
+            if (navigator.mediaDevices?.enumerateDevices) {
+                navigator.mediaDevices.enumerateDevices().then((devs) => {
+                    if (isMounted) {
+                        setMediaDevices(devs);
+                        if (devs.some((d) => d.kind === "audioinput" && d.label.length > 0)) {
+                            setPermission("granted");
+                            window.localStorage.setItem("audioPermissionGranted", "true");
+                        }
+                    }
+                });
+            }
+        };
+
+        navigator.mediaDevices?.addEventListener("devicechange", handleDeviceChange);
+
+        return () => {
+            isMounted = false;
+            navigator.mediaDevices?.removeEventListener("devicechange", handleDeviceChange);
+        };
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -67,21 +157,6 @@ export function Audio() {
         };
     }, [mediaStream]);
 
-    useEffect(() => {
-        if (!mediaStream) {
-            return;
-        }
-
-        navigator.mediaDevices.enumerateDevices().then(
-            (devices) => {
-                setMediaDevices(devices);
-            },
-            (err) => {
-                setError(err as DOMException);
-            },
-        );
-    }, [mediaStream]);
-
     const handleAskForPermission = (
         ev: JSX.TargetedMouseEvent<HTMLElement>,
     ) => {
@@ -90,12 +165,12 @@ export function Audio() {
         askOrGetPermission();
     };
 
+    const isGranted = permission === "granted";
+
     return (
         <>
             <div className={styles.audio}>
-
-
-                {!permission && (
+                {!isGranted && (
                     <Tip palette="error">
                         <Text id="app.settings.pages.audio.tip_grant_permission" />
                     </Tip>
@@ -146,20 +221,7 @@ export function Audio() {
                                         );
                                     })}
                             </ComboBox>
-                            {/*TOFIX: add logic to sound notches*/}
-                            {/*<div className={styles.notches}>
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                                <div />
-                            </div>*/}
-                            {!permission && (
+                            {!isGranted && (
                                 <Button
                                     compact
                                     onClick={(e: any) =>
@@ -180,7 +242,6 @@ export function Audio() {
                         <h3>
                             <Text id="app.settings.pages.audio.output_device" />
                         </h3>
-                        {/* TOFIX: create audio output combobox*/}
                         <ComboBox
                             value={
                                 window.localStorage.getItem(
@@ -209,18 +270,6 @@ export function Audio() {
                                     );
                                 })}
                         </ComboBox>
-                        {/*<div className={styles.notches}>
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                            <div />
-                        </div>*/}
                     </div>
                 </div>
             </div>
