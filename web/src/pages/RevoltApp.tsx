@@ -22,6 +22,7 @@ import InviteBot from "./invite/InviteBot";
 import ChannelSettings from "./settings/ChannelSettings";
 import ServerSettings from "./settings/ServerSettings";
 import Settings from "./settings/Settings";
+import { IncomingCallModal } from "../components/common/voice/IncomingCallModal";
 
 const AppContainer = styled.div`
     background-size: cover !important;
@@ -106,6 +107,7 @@ export default function App() {
 
     return (
         <>
+            <IncomingCallModal />
             {alert && statusBar && (
                 <StatusBar>
                     <div className="title">{alert.text}</div>

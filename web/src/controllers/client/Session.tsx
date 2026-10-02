@@ -5,6 +5,7 @@ import { state } from "../../mobx/State";
 
 import { resetMemberSidebarFetched } from "../../components/navigation/right/MemberSidebar";
 import { modalController } from "../modals/ModalController";
+import { voiceState } from "../../lib/vortex/VoiceState";
 
 /**
  * Current lifecycle state
@@ -118,12 +119,17 @@ export default class Session {
 
         this.client.addListener("dropped", this.onDropped);
         this.client.addListener("ready", this.onReady);
+        this.client.addListener("packet", (packet: any) => {
+            voiceState.handlePacket(packet, this.client!);
+        });
     }
 
     /**
      * Destroy the client including any listeners.
      */
     private destroyClient() {
+        voiceState.channelVoiceStates.clear();
+        voiceState.stopIncomingCall();
         this.client!.removeAllListeners();
         this.client!.logout();
         this.user_id = null;
@@ -259,19 +265,9 @@ export default class Session {
                     this.emit({
                         action: "RETRY",
                     });
-                } else {
-                    this.state = "Ready";
                 }
                 break;
             }
         }
-    }
-
-    /**
-     * Whether we are ready to render.
-     * @returns Boolean
-     */
-    @computed get ready() {
-        return !!this.client?.user;
     }
 }

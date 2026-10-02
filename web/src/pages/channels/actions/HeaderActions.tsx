@@ -167,6 +167,22 @@ const VoiceActions = observer(
         )
             return null;
 
+        const handleCall = async () => {
+            const parts = voiceState.getChannelParticipants(channel._id);
+            if (
+                parts.length === 0 &&
+                (channel.channel_type === "DirectMessage" ||
+                    channel.channel_type === "Group")
+            ) {
+                channel
+                    .sendMessage({ content: "📞 Звонок начат" })
+                    .catch(() => {});
+            }
+            await voiceState.loadVoice();
+            voiceState.disconnect();
+            voiceState.connect(channel);
+        };
+
         if (voiceState.status >= VoiceStatus.READY) {
             if (voiceState.roomId === channel._id) {
                 return (
@@ -177,20 +193,15 @@ const VoiceActions = observer(
             }
 
             return (
-                <IconButton
-                    onClick={async () => {
-                        await voiceState.loadVoice();
-                        voiceState.disconnect();
-                        voiceState.connect(channel);
-                    }}>
+                <IconButton onClick={handleCall}>
                     <PhoneCall size={24} />
                 </IconButton>
             );
         }
 
         return (
-            <IconButton>
-                <PhoneCall size={24} /** ! FIXME: TEMP */ color="red" />
+            <IconButton onClick={handleCall}>
+                <PhoneCall size={24} />
             </IconButton>
         );
     },

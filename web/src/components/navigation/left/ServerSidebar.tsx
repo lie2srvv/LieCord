@@ -20,6 +20,7 @@ import ServerHeader from "../../common/ServerHeader";
 import { ChannelButton } from "../items/ButtonItem";
 import ConnectionStatus from "../items/ConnectionStatus";
 import { StatusPanel } from "./StatusPanel";
+import { VoiceChannelParticipants } from "./VoiceChannelParticipants";
 
 const ServerBase = styled.div`
     height: 100%;
@@ -39,34 +40,29 @@ const ServerBase = styled.div`
 `;
 
 const ServerList = styled.div`
-    padding: 6px;
+    overflow: hidden scroll;
+    gap: 2px;
+    padding: 12px 0 12px 10px;
+    display: flex;
+    flex-direction: column;
     flex-grow: 1;
-    overflow-y: scroll;
-
-    > svg {
-        width: 100%;
-    }
 `;
 
 export default observer(() => {
+    const { server: server_id, channel: channel_id } =
+        useParams<{ server: string; channel: string }>();
+
     const client = useClient();
-    const state = useApplicationState();
-    const { server: server_id, channel: channel_id } = useParams<{
-        server: string;
-        channel?: string;
-    }>();
-
     const server = client.servers.get(server_id);
-    if (!server) return <Redirect to="/" />;
+    const channel = client.channels.get(channel_id);
 
-    const channel = channel_id ? client.channels.get(channel_id) : undefined;
+    const state = useApplicationState();
 
-    // ! FIXME: move this globally
-    // Track which channel the user was last on.
+    if (!server) {
+        return <Redirect to="/" />;
+    }
+
     useEffect(() => {
-        if (!channel_id) return;
-        if (!server_id) return;
-
         state.layout.setLastOpened(server_id, channel_id);
     }, [channel_id, server_id]);
 
@@ -82,35 +78,44 @@ export default observer(() => {
         const mentionCount = entry.getMentions(state.notifications);
 
         return (
-            <ConditionalLink
-                onClick={(e) => {
-                    if (e.shiftKey) {
-                        internalEmit(
-                            "MessageBox",
-                            "append",
-                            `<#${entry._id}>`,
-                            "channel_mention",
-                        );
-                        e.preventDefault();
-                    }
-                }}
+            <div
                 key={entry._id}
-                active={active}
-                to={`/server/${server!._id}/channel/${entry._id}`}>
-                <ChannelButton
-                    channel={entry}
+                style={{ display: "flex", flexDirection: "column" }}>
+                <ConditionalLink
+                    onClick={(e) => {
+                        if (e.shiftKey) {
+                            internalEmit(
+                                "MessageBox",
+                                "append",
+                                `<#${entry._id}>`,
+                                "channel_mention",
+                            );
+                            e.preventDefault();
+                        }
+                    }}
                     active={active}
-                    alert={
-                        mentionCount.length > 0
-                            ? "mention"
-                            : isUnread
-                            ? "unread"
-                            : undefined
-                    }
-                    compact
-                    muted={state.notifications.isMuted(entry)}
-                />
-            </ConditionalLink>
+                    to={`/server/${server!._id}/channel/${entry._id}`}>
+                    <ChannelButton
+                        channel={entry}
+                        active={active}
+                        alert={
+                            mentionCount.length > 0
+                                ? "mention"
+                                : isUnread
+                                ? "unread"
+                                : undefined
+                        }
+                        compact
+                        muted={state.notifications.isMuted(entry)}
+                    />
+                </ConditionalLink>
+                {entry.channel_type === "VoiceChannel" && (
+                    <VoiceChannelParticipants
+                        channelId={entry._id}
+                        serverId={server._id}
+                    />
+                )}
+            </div>
         );
     }
 

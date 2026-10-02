@@ -1,5 +1,5 @@
 import { X } from "@styled-icons/boxicons-regular";
-import { Crown } from "@styled-icons/boxicons-solid";
+import { Crown, PhoneCall } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
 import { User, Channel } from "revolt.js";
 
@@ -19,6 +19,7 @@ import Tooltip from "../../common/Tooltip";
 import UserIcon from "../../common/user/UserIcon";
 import { Username } from "../../common/user/UserShort";
 import UserStatus from "../../common/user/UserStatus";
+import { voiceState } from "../../../lib/vortex/VoiceState";
 
 type CommonProps = Omit<
     JSX.HTMLAttributes<HTMLDivElement>,
@@ -50,6 +51,8 @@ export const UserButton = observer((props: UserProps) => {
         ...divProps
     } = props;
 
+    const hasVoice = channel && voiceState.isChannelActive(channel._id);
+
     return (
         <div
             {...divProps}
@@ -80,8 +83,12 @@ export const UserButton = observer((props: UserProps) => {
                 </div>
                 {
                     <div className={styles.subText}>
-                        {typeof channel?.last_message?.content === "string" &&
-                        alert ? (
+                        {hasVoice ? (
+                            <span style={{ color: "#57f287", fontWeight: 600 }}>
+                                📞 В звонке
+                            </span>
+                        ) : typeof channel?.last_message?.content === "string" &&
+                          alert ? (
                             channel.last_message.content.slice(0, 32)
                         ) : (
                             <UserStatus user={user} tooltip />
@@ -90,6 +97,13 @@ export const UserButton = observer((props: UserProps) => {
                 }
             </div>
             <div className={styles.button}>
+                {hasVoice && (
+                    <PhoneCall
+                        size={16}
+                        color="#57f287"
+                        style={{ marginRight: 4, flexShrink: 0 }}
+                    />
+                )}
                 {context?.channel_type === "Group" &&
                     context.owner_id === user._id && (
                         <Localizer>
@@ -147,6 +161,11 @@ export const ChannelButton = observer((props: ChannelProps) => {
     }
 
     const alerting = alert && !muted && !active;
+    const isVoice = channel.channel_type === "VoiceChannel";
+    const voiceParts = isVoice ? voiceState.getChannelParticipants(channel._id) : [];
+    const hasVoice =
+        channel.channel_type === "Group" &&
+        voiceState.isChannelActive(channel._id);
 
     return (
         <div
@@ -169,9 +188,13 @@ export const ChannelButton = observer((props: ChannelProps) => {
                 <div>{channel.name}</div>
                 {channel.channel_type === "Group" && (
                     <div className={styles.subText}>
-                        {typeof channel.last_message?.content === "string" &&
-                        alert &&
-                        !muted ? (
+                        {hasVoice ? (
+                            <span style={{ color: "#57f287", fontWeight: 600 }}>
+                                📞 В звонке
+                            </span>
+                        ) : typeof channel.last_message?.content === "string" &&
+                          alert &&
+                          !muted ? (
                             channel.last_message.content.slice(0, 32)
                         ) : (
                             <Text
@@ -186,6 +209,28 @@ export const ChannelButton = observer((props: ChannelProps) => {
                 )}
             </div>
             <div className={styles.button}>
+                {isVoice && voiceParts.length > 0 && (
+                    <div
+                        style={{
+                            background: "#23a55a",
+                            color: "#fff",
+                            borderRadius: "10px",
+                            padding: "1px 6px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            marginRight: 4,
+                            flexShrink: 0,
+                        }}>
+                        {voiceParts.length}
+                    </div>
+                )}
+                {hasVoice && (
+                    <PhoneCall
+                        size={16}
+                        color="#57f287"
+                        style={{ marginRight: 4, flexShrink: 0 }}
+                    />
+                )}
                 {alerting && (
                     <div className={styles.alert} data-style={alert}>
                         {alertCount}
