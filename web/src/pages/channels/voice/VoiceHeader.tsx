@@ -6,12 +6,12 @@ import {
     VolumeFull,
     VolumeMute,
 } from "@styled-icons/boxicons-solid";
-import { Desktop } from "@styled-icons/boxicons-regular";
+import { Desktop, Fullscreen, ExitFullscreen, Expand, Collapse } from "@styled-icons/boxicons-regular";
 import { observer } from "mobx-react-lite";
 import styled, { css } from "styled-components/macro";
 
 import { Text } from "preact-i18n";
-import { useMemo, useRef, useEffect } from "preact/hooks";
+import { useMemo, useRef, useEffect, useState } from "preact/hooks";
 
 import { Button } from "@revoltchat/ui";
 
@@ -91,20 +91,37 @@ const ScreenShareArea = styled.div`
     gap: 16px;
 `;
 
-const VideoBox = styled.div`
+const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
     position: relative;
-    max-width: 900px;
+    max-width: ${(props) => (props.expanded ? "100%" : "960px")};
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: ${(props) => (props.expanded ? "calc(75vh)" : "auto")};
+    max-height: ${(props) => (props.expanded ? "80vh" : "none")};
+    aspect-ratio: ${(props) => (props.expanded ? "unset" : "16 / 9")};
     background: #0d0e11;
-    border-radius: 12px;
+    border-radius: ${(props) => (props.isFullscreen ? "0" : "12px")};
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--primary-background);
+    border: ${(props) => (props.isFullscreen ? "none" : "1px solid var(--primary-background)")};
+    transition: max-width 0.2s ease, height 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:fullscreen {
+        max-width: 100vw !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
 
     video {
         width: 100%;
         height: 100%;
+        max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
     }
 
@@ -120,11 +137,53 @@ const VideoBox = styled.div`
         font-size: 13px;
         font-weight: 500;
         pointer-events: none;
+        z-index: 5;
+    }
+
+    .video-controls {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        gap: 8px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        z-index: 10;
+    }
+
+    &:hover .video-controls {
+        opacity: 1;
+    }
+
+    .control-btn {
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease, transform 0.1s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        &:active {
+            transform: scale(0.95);
+        }
     }
 `;
 
 function VideoTrackView({ track, label }: { track: any; label: string }) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     useEffect(() => {
         const el = videoRef.current;
@@ -137,10 +196,51 @@ function VideoTrackView({ track, label }: { track: any; label: string }) {
         };
     }, [track]);
 
+    useEffect(() => {
+        const handleFsChange = () => {
+            setIsFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener("fullscreenchange", handleFsChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFsChange);
+        };
+    }, []);
+
+    const toggleFullscreen = () => {
+        if (!boxRef.current) return;
+        if (!document.fullscreenElement) {
+            boxRef.current.requestFullscreen?.().catch((err) => {
+                console.error("Fullscreen error:", err);
+            });
+        } else {
+            document.exitFullscreen?.().catch((err) => {
+                console.error("Exit fullscreen error:", err);
+            });
+        }
+    };
+
+    const toggleExpanded = () => {
+        setIsExpanded((prev) => !prev);
+    };
+
     return (
-        <VideoBox>
+        <VideoBox ref={boxRef} expanded={isExpanded} isFullscreen={isFullscreen}>
             <video ref={videoRef} autoPlay playsInline muted />
             <div className="video-label">{label}</div>
+            <div className="video-controls">
+                <button
+                    className="control-btn"
+                    onClick={toggleExpanded}
+                    title={isExpanded ? "Свернуть до стандартного размера" : "Растянуть на ширину чата"}>
+                    {isExpanded ? <Collapse size={20} /> : <Expand size={20} />}
+                </button>
+                <button
+                    className="control-btn"
+                    onClick={toggleFullscreen}
+                    title={isFullscreen ? "Выйти из полноэкранного режима" : "Полноэкранный режим"}>
+                    {isFullscreen ? <ExitFullscreen size={20} /> : <Fullscreen size={20} />}
+                </button>
+            </div>
         </VideoBox>
     );
 }

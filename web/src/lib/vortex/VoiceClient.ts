@@ -460,14 +460,15 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 const fps = captureResolution.frameRate || 30;
                 let maxBitrate = 2_500_000;
                 if (maxDim <= 854) {
-                    maxBitrate = fps > 30 ? 1_500_000 : 1_000_000;
+                    maxBitrate = fps > 30 ? 1_200_000 : 800_000;
                 } else if (maxDim <= 1280) {
-                    maxBitrate = fps > 30 ? 3_500_000 : 2_200_000;
+                    maxBitrate = fps > 30 ? 3_000_000 : 2_000_000;
                 } else if (maxDim <= 1920) {
-                    maxBitrate = fps > 30 ? 7_000_000 : 4_500_000;
+                    maxBitrate = fps > 30 ? 5_000_000 : 3_500_000;
                 } else {
-                    // UHD 4K
-                    maxBitrate = fps > 30 ? 16_000_000 : 10_000_000;
+                    // UHD 4K: WebRTC over UDP chokes and drops audio if bitrate spikes to 10-16 Mbps.
+                    // Clamping to 5.5-6.0 Mbps gives crisp 4K text and stable audio/video RTC streams.
+                    maxBitrate = fps > 30 ? 6_000_000 : 4_500_000;
                 }
 
                 const publishOpts: TrackPublishOptions = {
@@ -475,6 +476,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         maxBitrate,
                         maxFramerate: fps,
                     },
+                    degradationPreference: 'maintain-resolution',
                     simulcast: false, // Ensure full original stream is transmitted directly
                 };
 
