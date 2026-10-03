@@ -1,14 +1,10 @@
-import { Twitter, Github, Mastodon } from "@styled-icons/boxicons-logos";
 import { observer } from "mobx-react-lite";
 import { Helmet } from "react-helmet";
-import { Link, Route, Switch, Redirect } from "react-router-dom";
+import { Route, Switch, Redirect } from "react-router-dom";
 
 import styles from "./Login.module.scss";
-import { Text } from "preact-i18n";
 
 import { useApplicationState } from "../../mobx/State";
-
-import wideSVG from "/assets/wide.svg";
 
 import LocaleSelector from "../../components/common/LocaleSelector";
 import { Titlebar } from "../../components/native/Titlebar";
@@ -55,20 +51,24 @@ export default observer(() => {
                         content={theme.getVariable("background")}
                     />
                 </Helmet>
-                <div className={styles.content}>
-                    <div className={styles.nav}>
-                        <a className={styles.logo}>
-                            {!("native" in window) && (
-                                <img
-                                    src={wideSVG}
-                                    style={{ filter: "var(--logo-filter)" }}
-                                    draggable={false}
-                                />
-                            )}
-                        </a>
-                        <LocaleSelector />
+                <div className={styles.topBar}>
+                    <div />
+                    <LocaleSelector />
+                </div>
+                <div className={styles.centerContainer}>
+                    <div className={styles.brandHeader}>
+                        <img
+                            src="/assets/logo_round.png"
+                            alt="LieCord"
+                            className={styles.brandLogo}
+                            onError={(e) => {
+                                (
+                                    e.target as HTMLImageElement
+                                ).style.display = "none";
+                            }}
+                        />
+                        <span className={styles.brandTitle}>LieCord</span>
                     </div>
-                    {/*<div className={styles.middle}>*/}
                     <div className={styles.form}>
                         <Switch>
                             <Route path="/login/create">
@@ -90,15 +90,6 @@ export default observer(() => {
                                 <FormLogin />
                             </Route>
                         </Switch>
-                    </div>
-                    {/*<div className={styles.loginQR}></div>*/}
-                    {/*</div>*/}
-                    <div className={styles.bottom}>
-                        <div className={styles.links}>
-                            <span style={{ color: "var(--text-muted)" }}>
-                                LieCord
-                            </span>
-                        </div>
                     </div>
                 </div>
             </div>
