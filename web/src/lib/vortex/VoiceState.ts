@@ -48,10 +48,15 @@ class VoiceStateReference {
     wasMutedBeforeDeafen: boolean = false;
 
     // Global channel voice states across server voice channels and DMs
-    channelVoiceStates: ObservableMap<string, ChannelVoiceParticipant[]> = new ObservableMap();
+    channelVoiceStates: ObservableMap<string, ChannelVoiceParticipant[]> =
+        new ObservableMap();
 
     // Incoming call state
-    incomingCall: { channelId: string; callerId: string; callerName: string } | null = null;
+    incomingCall: {
+        channelId: string;
+        callerId: string;
+        callerName: string;
+    } | null = null;
     private ringtoneAudio?: HTMLAudioElement;
     private incomingCallTimer?: any;
     private ringtoneInterval?: any;
@@ -87,6 +92,8 @@ class VoiceStateReference {
         this.disconnect = this.disconnect.bind(this);
         this.toggleMic = this.toggleMic.bind(this);
         this.toggleDeafen = this.toggleDeafen.bind(this);
+        this.startDeafen = this.startDeafen.bind(this);
+        this.stopDeafen = this.stopDeafen.bind(this);
 
         makeAutoObservable(this, {
             client: false,
@@ -101,7 +108,10 @@ class VoiceStateReference {
         if (typeof window !== "undefined") {
             try {
                 localStorage.setItem("liecord_mic_muted", String(this.isMuted));
-                localStorage.setItem("liecord_deafened", String(this.isDeafened));
+                localStorage.setItem(
+                    "liecord_deafened",
+                    String(this.isDeafened),
+                );
             } catch (_) {}
         }
     }
@@ -131,7 +141,11 @@ class VoiceStateReference {
         this.streamVersion++;
     }
 
-    @action triggerIncomingCall(channelId: string, callerId: string, callerName: string) {
+    @action triggerIncomingCall(
+        channelId: string,
+        callerId: string,
+        callerName: string,
+    ) {
         if (this.incomingCall?.channelId === channelId) return;
         this.incomingCall = { channelId, callerId, callerName };
 
@@ -144,9 +158,14 @@ class VoiceStateReference {
             if (!this.incomingCall || !this.ringtoneAudio) return;
             try {
                 this.ringtoneAudio.currentTime = 0;
-                this.ringtoneAudio.play().catch((e) =>
-                    console.log("Incoming call ringtone autoplay prevented:", e)
-                );
+                this.ringtoneAudio
+                    .play()
+                    .catch((e) =>
+                        console.log(
+                            "Incoming call ringtone autoplay prevented:",
+                            e,
+                        ),
+                    );
             } catch (e) {
                 console.error("Failed to play ping:", e);
             }
@@ -211,7 +230,7 @@ class VoiceStateReference {
                 if (!cid || !uid) return;
 
                 const prev = (this.channelVoiceStates.get(cid) || []).filter(
-                    (p) => p.id !== uid
+                    (p) => p.id !== uid,
                 );
                 const newParticipant: ChannelVoiceParticipant = {
                     id: uid,
@@ -246,14 +265,11 @@ class VoiceStateReference {
                 if (!cid || !uid) return;
 
                 const prev = (this.channelVoiceStates.get(cid) || []).filter(
-                    (p) => p.id !== uid
+                    (p) => p.id !== uid,
                 );
                 this.channelVoiceStates.set(cid, prev);
 
-                if (
-                    this.incomingCall?.channelId === cid &&
-                    prev.length === 0
-                ) {
+                if (this.incomingCall?.channelId === cid && prev.length === 0) {
                     this.stopIncomingCall();
                 }
                 break;
@@ -293,8 +309,8 @@ class VoiceStateReference {
                     this.channelVoiceStates.set(
                         cid,
                         parts.map((p) =>
-                            p.id === uid ? { ...p, ...packet.data } : p
-                        )
+                            p.id === uid ? { ...p, ...packet.data } : p,
+                        ),
                     );
                 }
                 break;
@@ -309,16 +325,14 @@ class VoiceStateReference {
         this.roomId = toNullable(this.client.roomId);
         this.participants.clear();
         this.client.participants.forEach((v, k) =>
-            this.participants.set(k, { ...v })
+            this.participants.set(k, { ...v }),
         );
         this.activeSpeakers = new Set(this.client.activeSpeakers);
         this.videoTracks.clear();
-        this.client.videoTracks.forEach((v, k) =>
-            this.videoTracks.set(k, v)
-        );
+        this.client.videoTracks.forEach((v, k) => this.videoTracks.set(k, v));
         this.screenThumbnails.clear();
         this.client.screenThumbnails.forEach((v, k) =>
-            this.screenThumbnails.set(k, v)
+            this.screenThumbnails.set(k, v),
         );
         this.watchingScreenUserId = toNullable(this.client.watchingUserId);
         this.streamVersion++;
@@ -398,7 +412,8 @@ class VoiceStateReference {
                 this.connecting = false;
                 this.roomId = channel._id;
                 this.audioProducing = this.client?.audioProducer !== undefined;
-                this.screenProducing = this.client?.screenProducer !== undefined;
+                this.screenProducing =
+                    this.client?.screenProducer !== undefined;
             });
             this.syncState();
 
@@ -518,7 +533,10 @@ class VoiceStateReference {
         this.syncState();
     }
 
-    @action async startProducing(type: ProduceType, screenOpts?: ScreenShareOptions) {
+    @action async startProducing(
+        type: ProduceType,
+        screenOpts?: ScreenShareOptions,
+    ) {
         if (type === "audio") {
             this.isMuted = false;
             if (this.isDeafened) {

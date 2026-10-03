@@ -1,12 +1,4 @@
 import {
-    BarChartAlt2,
-    Microphone,
-    MicrophoneOff,
-    PhoneOff,
-    VolumeFull,
-    VolumeMute,
-} from "@styled-icons/boxicons-solid";
-import {
     Desktop,
     Fullscreen,
     ExitFullscreen,
@@ -15,6 +7,14 @@ import {
     Show,
     LogOut,
 } from "@styled-icons/boxicons-regular";
+import {
+    BarChartAlt2,
+    Microphone,
+    MicrophoneOff,
+    PhoneOff,
+    VolumeFull,
+    VolumeMute,
+} from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
 import styled, { css } from "styled-components/macro";
 
@@ -106,7 +106,8 @@ const ScreenShareArea = styled.div`
 `;
 
 const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
-    position: ${(props) => (props.isFullscreen ? "fixed !important" : "relative")};
+    position: ${(props) =>
+        props.isFullscreen ? "fixed !important" : "relative"};
     top: ${(props) => (props.isFullscreen ? "0 !important" : "auto")};
     left: ${(props) => (props.isFullscreen ? "0 !important" : "auto")};
     width: ${(props) => (props.isFullscreen ? "100vw !important" : "100%")};
@@ -117,19 +118,27 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
             ? "calc(52vh - 64px)"
             : "260px"};
     max-width: ${(props) =>
-        props.isFullscreen ? "100vw !important" : props.expanded ? "100%" : "520px"};
+        props.isFullscreen
+            ? "100vw !important"
+            : props.expanded
+            ? "100%"
+            : "520px"};
     max-height: ${(props) =>
         props.isFullscreen
             ? "100vh !important"
             : props.expanded
             ? "calc(52vh - 64px)"
             : "280px"};
-    aspect-ratio: ${(props) => (props.isFullscreen || props.expanded ? "unset" : "16 / 9")};
+    aspect-ratio: ${(props) =>
+        props.isFullscreen || props.expanded ? "unset" : "16 / 9"};
     background: #0d0e11;
     border-radius: ${(props) => (props.isFullscreen ? "0 !important" : "10px")};
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    border: ${(props) => (props.isFullscreen ? "none !important" : "1px solid rgba(255, 255, 255, 0.1)")};
+    border: ${(props) =>
+        props.isFullscreen
+            ? "none !important"
+            : "1px solid rgba(255, 255, 255, 0.1)"};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -201,7 +210,8 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
         justify-content: center;
         transition: background 0.15s ease, transform 0.1s ease;
 
-        &:hover {\n            background: rgba(255, 255, 255, 0.2);
+        &:hover {
+            background: rgba(255, 255, 255, 0.2);
             transform: scale(1.05);
         }
 
@@ -225,9 +235,13 @@ const StreamTile = styled.div<{ active?: boolean }>`
     overflow: hidden;
     cursor: pointer;
     border: 2px solid
-        ${(props) => (props.active ? "var(--accent, #5865f2)" : "rgba(255, 255, 255, 0.12)")};
+        ${(props) =>
+            props.active
+                ? "var(--accent, #5865f2)"
+                : "rgba(255, 255, 255, 0.12)"};
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, border-color 0.15s ease,
+        box-shadow 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -236,7 +250,9 @@ const StreamTile = styled.div<{ active?: boolean }>`
     &:hover {
         transform: scale(1.03);
         border-color: ${(props) =>
-            props.active ? "var(--accent, #5865f2)" : "rgba(255, 255, 255, 0.3)"};
+            props.active
+                ? "var(--accent, #5865f2)"
+                : "rgba(255, 255, 255, 0.3)"};
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     }
 
@@ -493,8 +509,7 @@ function CompactStreamTile({
                 </div>
             )}
             <div className="badge-live">
-                <span className="live-dot" />
-                В эфире
+                <span className="live-dot" />В эфире
             </div>
             {isWatched && <div className="badge-watching">Просмотр</div>}
             <div className="stream-info">{label}</div>
@@ -570,7 +585,10 @@ function VideoTrackView({
 
         return () => {
             document.removeEventListener("fullscreenchange", handleFsChange);
-            document.removeEventListener("webkitfullscreenchange", handleFsChange);
+            document.removeEventListener(
+                "webkitfullscreenchange",
+                handleFsChange,
+            );
             window.removeEventListener("keydown", handleKeyDown);
         };
     }, [isFullscreen]);
@@ -625,7 +643,12 @@ function VideoTrackView({
                     }}
                 />
             ) : (
-                <div style={{ color: "#ffffff", fontSize: "14px", fontWeight: 500 }}>
+                <div
+                    style={{
+                        color: "#ffffff",
+                        fontSize: "14px",
+                        fontWeight: 500,
+                    }}>
                     Загрузка трансляции...
                 </div>
             )}
@@ -655,9 +678,7 @@ function VideoTrackView({
                     className="control-btn danger"
                     onClick={onLeaveStream}
                     title={
-                        isSelf
-                            ? "Остановить трансляцию"
-                            : "Покинуть трансляцию"
+                        isSelf ? "Остановить трансляцию" : "Покинуть трансляцию"
                     }>
                     {isSelf ? <PhoneOff size={18} /> : <LogOut size={18} />}
                 </button>
@@ -779,7 +800,9 @@ export default observer(({ id }: Props) => {
     }, [watchedStreamUserId, activeStreamEntries]);
 
     const handleLeaveStream = (targetUserId: string) => {
-        const videoEl = document.querySelector("#main-stream-video") as HTMLVideoElement | null;
+        const videoEl = document.querySelector(
+            "#main-stream-video",
+        ) as HTMLVideoElement | null;
         if (videoEl) {
             captureLastFrame(videoEl, targetUserId);
         }
@@ -864,7 +887,9 @@ export default observer(({ id }: Props) => {
                               } else {
                                   const pInfo =
                                       voiceState.participants.get(user_id);
-                                  voiceStatus = pInfo?.audio ? undefined : "muted";
+                                  voiceStatus = pInfo?.audio
+                                      ? undefined
+                                      : "muted";
                               }
 
                               return (
@@ -873,7 +898,10 @@ export default observer(({ id }: Props) => {
                                       speaking={isSpeaking}>
                                       <UserIcon
                                           size={80}
-                                          target={user ?? (isSelf ? self : undefined)}
+                                          target={
+                                              user ??
+                                              (isSelf ? self : undefined)
+                                          }
                                           status={false}
                                           voice={voiceStatus}
                                           onClick={() =>
@@ -906,41 +934,46 @@ export default observer(({ id }: Props) => {
             </div>
 
             <div className="actions">
-                <Tooltip content={"Leave call"} placement={"top"}>
+                <Tooltip content={"Отключиться"} placement={"top"}>
                     <Button palette="error" onClick={voiceState.disconnect}>
                         <PhoneOff width={20} />
                     </Button>
                 </Tooltip>
                 {voiceState.isProducing("audio") ? (
-                    <Tooltip content={"Mute microphone"} placement={"top"}>
+                    <Tooltip content={"Отключить микрофон"} placement={"top"}>
                         <Button
                             onClick={() => voiceState.stopProducing("audio")}>
                             <Microphone width={20} />
                         </Button>
                     </Tooltip>
                 ) : (
-                    <Tooltip content={"Unmute microphone"} placement={"top"}>
+                    <Tooltip content={"Включить микрофон"} placement={"top"}>
                         <Button
+                            palette="error"
                             onClick={() => voiceState.startProducing("audio")}>
                             <MicrophoneOff width={20} />
                         </Button>
                     </Tooltip>
                 )}
                 {voiceState.isDeaf() ? (
-                    <Tooltip content={"Undeafen"} placement={"top"}>
-                        <Button onClick={voiceState.stopDeafen}>
+                    <Tooltip content={"Включить звук"} placement={"top"}>
+                        <Button
+                            palette="error"
+                            onClick={() => voiceState.stopDeafen()}>
                             <VolumeMute width={20} />
                         </Button>
                     </Tooltip>
                 ) : (
-                    <Tooltip content={"Deafen"} placement={"top"}>
-                        <Button onClick={voiceState.startDeafen}>
+                    <Tooltip content={"Заглушить звук"} placement={"top"}>
+                        <Button onClick={() => voiceState.startDeafen()}>
                             <VolumeFull width={20} />
                         </Button>
                     </Tooltip>
                 )}
                 {voiceState.isProducing("screen") ? (
-                    <Tooltip content={"Stop screen share"} placement={"top"}>
+                    <Tooltip
+                        content={"Остановить демонстрацию экрана"}
+                        placement={"top"}>
                         <Button
                             palette="accent"
                             onClick={() => voiceState.stopProducing("screen")}>
@@ -948,7 +981,7 @@ export default observer(({ id }: Props) => {
                         </Button>
                     </Tooltip>
                 ) : (
-                    <Tooltip content={"Share screen"} placement={"top"}>
+                    <Tooltip content={"Демонстрация экрана"} placement={"top"}>
                         <Button
                             onClick={() => {
                                 modalController.push({ type: "screen_share" });
@@ -1010,6 +1043,7 @@ export default observer(({ id }: Props) => {
                                         setIsExpanded((prev) => !prev);
                                         setContextMenu(null);
                                     }}>
+                                    {" "}
                                     {isExpanded ? (
                                         <Collapse size={16} />
                                     ) : (
