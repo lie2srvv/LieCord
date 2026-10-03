@@ -16,6 +16,7 @@ import chat.stoat.api.routes.voice.joinCall
 import chat.stoat.composables.voice.VoiceSound
 import chat.stoat.composables.voice.VoiceSoundPlayer
 import chat.stoat.services.OngoingCallService
+import com.twilio.audioswitch.AudioDevice
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
@@ -76,6 +77,16 @@ object VoiceCallManager {
     fun watchStream(userId: String) {
         watchingUserId = userId
         updateScreenShareSubscriptions()
+        val currentRoom = room ?: return
+        val audioHandler = currentRoom.audioSwitchHandler
+        if (audioHandler != null) {
+            val available = audioHandler.availableAudioDevices
+            val speaker = available.find { it is AudioDevice.Speakerphone }
+            val current = audioHandler.selectedAudioDevice
+            if (speaker != null && (current == null || current is AudioDevice.Earpiece)) {
+                audioHandler.selectDevice(speaker)
+            }
+        }
     }
 
     fun stopWatchingStream() {
@@ -97,6 +108,8 @@ object VoiceCallManager {
                     (pub as? RemoteTrackPublication)?.setSubscribed(isTarget)
                     if (isTarget && !isDeafened) {
                         (track as? RemoteAudioTrack)?.setVolume(1.0)
+                    } else if (!isTarget) {
+                        (track as? RemoteAudioTrack)?.setVolume(0.0)
                     }
                 }
             }
@@ -226,8 +239,14 @@ object VoiceCallManager {
 
     private fun applyDeafenState(room: Room) {
         room.remoteParticipants.values.forEach { participant ->
-            participant.audioTrackPublications.forEach { (_, track) ->
-                (track as? RemoteAudioTrack)?.setVolume(if (isDeafened) 0.0 else 1.0)
+            participant.audioTrackPublications.forEach { (pub, track) ->
+                val isScreenAudio = pub.source == Track.Source.SCREEN_SHARE_AUDIO
+                val isWatchingScreen = participant.identity?.value == watchingUserId
+                if (isScreenAudio && !isWatchingScreen) {
+                    (track as? RemoteAudioTrack)?.setVolume(0.0)
+                } else {
+                    (track as? RemoteAudioTrack)?.setVolume(if (isDeafened) 0.0 else 1.0)
+                }
             }
         }
     }
@@ -268,6 +287,8 @@ object VoiceCallManager {
                         val shouldSubscribe = event.participant.identity?.value == watchingUserId
                         if (!shouldSubscribe) {
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(false)
+                        } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO && !isDeafened) {
+                            (event.track as? RemoteAudioTrack)?.setVolume(1.0)
                         }
                     }
                 }

@@ -315,10 +315,12 @@ export async function createWindow(store: ConfigurationStore) {
   session.defaultSession.setDisplayMediaRequestHandler(
     async (request, callback) => {
       try {
+        const isWindows = process.platform === "win32";
+
         // Check if pre-selected via custom UI
         if (pendingScreenSource) {
           const src = pendingScreenSource;
-          const includeAudio = Boolean(pendingScreenAudio);
+          const includeAudio = Boolean(pendingScreenAudio) && isWindows;
           pendingScreenSource = null;
           pendingScreenAudio = false;
 
@@ -339,7 +341,7 @@ export async function createWindow(store: ConfigurationStore) {
           return;
         }
 
-        const includeAudio = Boolean(request.audioRequested);
+        const includeAudio = Boolean(request.audioRequested) && isWindows;
 
         if (sources.length === 1) {
           includeAudio

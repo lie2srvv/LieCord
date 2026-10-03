@@ -110,7 +110,11 @@ fun VoiceSheet(onDisconnect: () -> Unit) {
         val isScreenShared by room.localParticipant::isScreenShareEnabled.flow.collectAsState()
         val activeSpeakers by room::activeSpeakers.flow.collectAsState()
         val participants by rememberParticipants(room)
-        val trackRefs by rememberTracks(passedRoom = room)
+        val trackRefs by rememberTracks(
+            sources = listOf(Track.Source.CAMERA, Track.Source.SCREEN_SHARE),
+            onlySubscribed = false,
+            passedRoom = room
+        )
         val isDeafened = VoiceCallManager.isDeafened
         var fullscreenTrackRef by remember { mutableStateOf<TrackReference?>(null) }
 

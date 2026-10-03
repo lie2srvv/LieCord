@@ -185,6 +185,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public consumers: Map<string, any> = new Map();
     public audioProducer?: any;
     public screenProducer?: any;
+    public screenAudioProducer?: any;
     public activeSpeakers: Set<string> = new Set();
     public videoTracks: Map<string, Track> = new Map();
 
@@ -513,6 +514,11 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     publication.source === Track.Source.ScreenShareAudio
                 ) {
                     this.screenAudioPublications.set(uid, publication);
+                    if (this.watchingUserId === uid) {
+                        try {
+                            publication.setSubscribed(true);
+                        } catch (_) {}
+                    }
                 }
             },
         );
@@ -653,6 +659,14 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
             if (publication.source === Track.Source.ScreenShare) {
+                if (this.screenAudioProducer) {
+                    try {
+                        if (this.screenAudioProducer.track) {
+                            this.screenAudioProducer.track.stop();
+                        }
+                    } catch (_) {}
+                    this.screenAudioProducer = undefined;
+                }
                 this.screenProducer = undefined;
                 if (this.room) {
                     this.videoTracks.delete(
@@ -716,6 +730,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.screenAudioTracks.clear();
         this.screenThumbnails.clear();
         this.watchingUserId = null;
+        if (this.screenAudioProducer) {
+            try {
+                this.screenAudioProducer.track?.stop();
+            } catch (_) {}
+            this.screenAudioProducer = undefined;
+        }
         this.audioProducer = undefined;
         this.screenProducer = undefined;
         // Keep isDeaf and isMuted intact across calls
@@ -843,6 +863,76 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                             pub.track as any,
                         );
                     }
+
+                    // Fallback desktop audio capture (Linux/monitor) if getDisplayMedia returned no audio
+                    const existingAudioPub =
+                        this.room?.localParticipant.getTrackPublication(
+                            Track.Source.ScreenShareAudio,
+                        );
+                    if (
+                        !existingAudioPub &&
+                        screenOpts?.audio !== false &&
+                        typeof navigator !== "undefined" &&
+                        navigator.mediaDevices
+                    ) {
+                        try {
+                            const devices =
+                                await navigator.mediaDevices.enumerateDevices();
+                            const audioInputs = devices.filter(
+                                (d) => d.kind === "audioinput",
+                            );
+                            const monitorDevice =
+                                audioInputs.find((d) =>
+                                    /liecord-virtual-source/i.test(d.label),
+                                ) ||
+                                audioInputs.find((d) =>
+                                    /monitor|монитор/i.test(d.label),
+                                ) ||
+                                audioInputs.find((d) =>
+                                    /reversed_stereo_sink/i.test(d.label),
+                                );
+
+                            if (monitorDevice) {
+                                console.info(
+                                    "[VoiceClient] Capturing desktop monitor audio:",
+                                    monitorDevice.label,
+                                );
+                                const audioStream =
+                                    await navigator.mediaDevices.getUserMedia({
+                                        audio: {
+                                            deviceId: {
+                                                exact: monitorDevice.deviceId,
+                                            },
+                                            autoGainControl: false,
+                                            echoCancellation: false,
+                                            noiseSuppression: false,
+                                        },
+                                    });
+                                const audioTrack =
+                                    audioStream.getAudioTracks()[0];
+                                if (audioTrack && this.room) {
+                                    const audioPub =
+                                        await this.room.localParticipant.publishTrack(
+                                            audioTrack,
+                                            {
+                                                source: Track.Source
+                                                    .ScreenShareAudio,
+                                                name: "screen_audio",
+                                                dtx: false,
+                                                audioBitrate: 128_000,
+                                            },
+                                        );
+                                    this.screenAudioProducer = audioPub;
+                                }
+                            }
+                        } catch (audioFallbackErr) {
+                            console.warn(
+                                "[VoiceClient] Could not capture desktop monitor audio fallback:",
+                                audioFallbackErr,
+                            );
+                        }
+                    }
+
                     // Apply sender encoding parameters directly to guarantee bitrate & fps
                     const sender =
                         (pub as any).track?.sender || (pub as any).sender;
@@ -885,6 +975,19 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             this.audioProducer = undefined;
             this.emit("stopProduce", "audio");
         } else if (type === "screen") {
+            if (this.screenAudioProducer) {
+                try {
+                    if (this.screenAudioProducer.track) {
+                        await this.room.localParticipant.unpublishTrack(
+                            this.screenAudioProducer.track,
+                        );
+                        this.screenAudioProducer.track.stop();
+                    }
+                } catch (err) {
+                    console.warn("Failed to stop custom screen audio:", err);
+                }
+                this.screenAudioProducer = undefined;
+            }
             try {
                 await this.room.localParticipant.setScreenShareEnabled(false);
             } catch (err) {
