@@ -36,6 +36,9 @@ class VoiceStateReference {
     participants: Map<string, VoiceUser> = new Map();
     activeSpeakers: Set<string> = new Set();
     videoTracks: Map<string, any> = new Map();
+    screenThumbnails: Map<string, string> = new Map();
+    watchingScreenUserId: Nullable<string> = null;
+    streamVersion: number = 0;
 
     // Observable states tracked by MobX
     isMuted: boolean = false;
@@ -59,6 +62,9 @@ class VoiceStateReference {
         this.participants = new Map();
         this.activeSpeakers = new Set();
         this.videoTracks = new Map();
+        this.screenThumbnails = new Map();
+        this.watchingScreenUserId = null;
+        this.streamVersion = 0;
 
         if (typeof window !== "undefined") {
             try {
@@ -107,6 +113,22 @@ class VoiceStateReference {
     isChannelActive(channelId: string): boolean {
         const parts = this.channelVoiceStates.get(channelId);
         return !!(parts && parts.length > 0);
+    }
+
+    @action setWatchingScreenUserId(userId: Nullable<string>) {
+        this.watchingScreenUserId = userId;
+        if (this.client) {
+            this.client.setWatchingUserId(userId);
+        }
+        this.syncState();
+    }
+
+    @action setScreenThumbnail(userId: string, dataUrl: string) {
+        this.screenThumbnails.set(userId, dataUrl);
+        if (this.client) {
+            this.client.setScreenThumbnail(userId, dataUrl);
+        }
+        this.streamVersion++;
     }
 
     @action triggerIncomingCall(channelId: string, callerId: string, callerName: string) {
@@ -294,6 +316,12 @@ class VoiceStateReference {
         this.client.videoTracks.forEach((v, k) =>
             this.videoTracks.set(k, v)
         );
+        this.screenThumbnails.clear();
+        this.client.screenThumbnails.forEach((v, k) =>
+            this.screenThumbnails.set(k, v)
+        );
+        this.watchingScreenUserId = toNullable(this.client.watchingUserId);
+        this.streamVersion++;
 
         this.audioProducing = this.client.audioProducer !== undefined;
         this.screenProducing = this.client.screenProducer !== undefined;
@@ -323,6 +351,8 @@ class VoiceStateReference {
             client.on("userStartProduce", this.syncState);
             client.on("userStopProduce", this.syncState);
             client.on("activeSpeakersChanged", this.syncState);
+            client.on("screenThumbnailUpdated", this.syncState);
+            client.on("screenSubscriptionChanged", this.syncState);
 
             runInAction(() => {
                 if (!client.supported()) {
@@ -397,6 +427,9 @@ class VoiceStateReference {
         this.roomId = null;
         this.audioProducing = false;
         this.screenProducing = false;
+        this.watchingScreenUserId = null;
+        this.screenThumbnails.clear();
+        this.streamVersion++;
         // User's chosen isMuted and isDeafened settings are preserved!
 
         this.client?.disconnect();

@@ -201,8 +201,7 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
         justify-content: center;
         transition: background 0.15s ease, transform 0.1s ease;
 
-        &:hover {
-            background: rgba(255, 255, 255, 0.2);
+        &:hover {\n            background: rgba(255, 255, 255, 0.2);
             transform: scale(1.05);
         }
 
@@ -247,6 +246,24 @@ const StreamTile = styled.div<{ active?: boolean }>`
         object-fit: cover;
         opacity: ${(props) => (props.active ? 0.35 : 0.75)};
         pointer-events: none;
+    }
+
+    img.stream-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: ${(props) => (props.active ? 0.35 : 0.75)};
+        pointer-events: none;
+    }
+
+    .stream-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.4);
+        background: #18191c;
     }
 
     .badge-live {
@@ -401,8 +418,30 @@ const ContextMenuPopup = styled.div<{ x: number; y: number }>`
     }
 `;
 
+function captureLastFrame(videoEl: HTMLVideoElement | null, userId: string) {
+    if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return;
+    try {
+        const canvas = document.createElement("canvas");
+        const targetWidth = Math.min(videoEl.videoWidth, 480);
+        const targetHeight = Math.round(
+            (targetWidth / videoEl.videoWidth) * videoEl.videoHeight,
+        );
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(videoEl, 0, 0, targetWidth, targetHeight);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            voiceState.setScreenThumbnail(userId, dataUrl);
+        }
+    } catch (e) {
+        console.warn("[VoiceHeader] Failed to capture last stream frame:", e);
+    }
+}
+
 function CompactStreamTile({
     track,
+    thumbnail,
     label,
     userId,
     isSelf,
@@ -410,7 +449,8 @@ function CompactStreamTile({
     onWatch,
     onContextMenu,
 }: {
-    track: any;
+    track?: any;
+    thumbnail?: string;
     label: string;
     userId: string;
     isSelf: boolean;
@@ -421,6 +461,9 @@ function CompactStreamTile({
     const videoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
+        // Live video is only rendered in the compact tile for local user preview.
+        // Remotes use the static 0 KB/s snapshot frame to eliminate background bandwidth.
+        if (!isSelf) return;
         const el = videoRef.current;
         if (!el || !track) return;
         track.attach(el);
@@ -429,14 +472,26 @@ function CompactStreamTile({
                 track.detach(el);
             }
         };
-    }, [track]);
+    }, [track, isSelf]);
 
     return (
         <StreamTile
             active={isWatched}
             onClick={onWatch}
             onContextMenu={onContextMenu}>
-            <video ref={videoRef} autoPlay playsInline muted />
+            {isSelf ? (
+                <video ref={videoRef} autoPlay playsInline muted />
+            ) : thumbnail ? (
+                <img
+                    src={thumbnail}
+                    alt={label}
+                    className="stream-preview-img"
+                />
+            ) : (
+                <div className="stream-placeholder">
+                    <Desktop size={32} />
+                </div>
+            )}
             <div className="badge-live">
                 <span className="live-dot" />
                 В эфире
@@ -460,6 +515,7 @@ function CompactStreamTile({
 
 function VideoTrackView({
     track,
+    thumbnail,
     label,
     userId,
     isSelf,
@@ -468,7 +524,8 @@ function VideoTrackView({
     onLeaveStream,
     onContextMenu,
 }: {
-    track: any;
+    track?: any;
+    thumbnail?: string;
     label: string;
     userId: string;
     isSelf: boolean;
@@ -549,7 +606,29 @@ function VideoTrackView({
             expanded={isExpanded}
             isFullscreen={isFullscreen}
             onContextMenu={onContextMenu}>
-            <video ref={videoRef} autoPlay playsInline muted />
+            {track ? (
+                <video
+                    id="main-stream-video"
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted={isSelf}
+                />
+            ) : thumbnail ? (
+                <img
+                    src={thumbnail}
+                    alt={label}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                    }}
+                />
+            ) : (
+                <div style={{ color: "#ffffff", fontSize: "14px", fontWeight: 500 }}>
+                    Загрузка трансляции...
+                </div>
+            )}
             <div className="video-label">{label}</div>
             <div className="video-controls">
                 <button
@@ -611,12 +690,13 @@ export default observer(({ id }: Props) => {
     const self = selfId ? client.users.get(selfId) : undefined;
 
     const [isExpanded, setIsExpanded] = useState(false);
-    const [watchedStreamUserId, setWatchedStreamUserId] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<{
         x: number;
         y: number;
         userId: string;
     } | null>(null);
+
+    const watchedStreamUserId = voiceState.watchingScreenUserId;
 
     // Collect all participant IDs in the call, ensuring local user (self) is always included
     const allParticipantIds = useMemo(() => {
@@ -634,38 +714,84 @@ export default observer(({ id }: Props) => {
         return allParticipantIds.map((key) => client.users.get(key));
     }, [allParticipantIds, client.users]);
 
-    const activeVideoEntries = useMemo(() => {
-        const entries: { userId: string; track: any; label: string }[] = [];
-        voiceState.videoTracks.forEach((track, userId) => {
-            const u = client.users.get(userId);
-            const name =
-                userId === selfId
-                    ? "Ваш экран"
-                    : u?.username
-                      ? `${u.username}`
-                      : "Экран участника";
-            entries.push({ userId, track, label: name });
-        });
-        return entries;
-    }, [voiceState.videoTracks.size, client.users, selfId]);
+    // Active streams: combines local presenter and remote participants who are currently screen sharing
+    const activeStreamEntries = useMemo(() => {
+        const entries: {
+            userId: string;
+            track: any;
+            thumbnail?: string;
+            label: string;
+            isSelf: boolean;
+        }[] = [];
 
-    // If currently watched stream stopped sharing, reset watchedStreamUserId
+        if (selfId && voiceState.isProducing("screen")) {
+            entries.push({
+                userId: selfId,
+                track: voiceState.videoTracks.get(selfId),
+                thumbnail: voiceState.screenThumbnails.get(selfId),
+                label: "Ваш экран",
+                isSelf: true,
+            });
+        }
+
+        voiceState.participants.forEach((p, uid) => {
+            if (uid === selfId) return;
+            if (p.screen) {
+                const u = client.users.get(uid);
+                const name = u?.username ? `${u.username}` : "Экран участника";
+                entries.push({
+                    userId: uid,
+                    track: voiceState.videoTracks.get(uid),
+                    thumbnail: voiceState.screenThumbnails.get(uid),
+                    label: name,
+                    isSelf: false,
+                });
+            }
+        });
+
+        return entries;
+    }, [
+        voiceState.screenProducing,
+        voiceState.participants.size,
+        voiceState.videoTracks.size,
+        voiceState.screenThumbnails.size,
+        voiceState.streamVersion,
+        client.users,
+        selfId,
+    ]);
+
+    // If currently watched stream stopped sharing, reset watched state
     useEffect(() => {
         if (
             watchedStreamUserId &&
-            !activeVideoEntries.some((v) => v.userId === watchedStreamUserId)
+            !activeStreamEntries.some((v) => v.userId === watchedStreamUserId)
         ) {
-            setWatchedStreamUserId(null);
+            voiceState.setWatchingScreenUserId(null);
         }
-    }, [watchedStreamUserId, activeVideoEntries]);
+    }, [watchedStreamUserId, activeStreamEntries]);
 
     const currentlyWatchedStream = useMemo(() => {
         if (!watchedStreamUserId) return null;
         return (
-            activeVideoEntries.find((v) => v.userId === watchedStreamUserId) ||
+            activeStreamEntries.find((v) => v.userId === watchedStreamUserId) ||
             null
         );
-    }, [watchedStreamUserId, activeVideoEntries]);
+    }, [watchedStreamUserId, activeStreamEntries]);
+
+    const handleLeaveStream = (targetUserId: string) => {
+        const videoEl = document.querySelector("#main-stream-video") as HTMLVideoElement | null;
+        if (videoEl) {
+            captureLastFrame(videoEl, targetUserId);
+        }
+        if (targetUserId === selfId) {
+            voiceState.stopProducing("screen");
+        }
+        voiceState.setWatchingScreenUserId(null);
+    };
+
+    const handleWatchStream = (targetUserId: string) => {
+        voiceState.setWatchingScreenUserId(targetUserId);
+    };
 
     const handleContextMenu = (e: MouseEvent, userId: string) => {
         e.preventDefault();
@@ -685,17 +811,15 @@ export default observer(({ id }: Props) => {
                     <VideoTrackView
                         key={currentlyWatchedStream.userId}
                         track={currentlyWatchedStream.track}
+                        thumbnail={currentlyWatchedStream.thumbnail}
                         label={currentlyWatchedStream.label}
                         userId={currentlyWatchedStream.userId}
-                        isSelf={currentlyWatchedStream.userId === selfId}
+                        isSelf={currentlyWatchedStream.isSelf}
                         isExpanded={isExpanded}
                         onToggleExpanded={() => setIsExpanded((prev) => !prev)}
-                        onLeaveStream={() => {
-                            if (currentlyWatchedStream.userId === selfId) {
-                                voiceState.stopProducing("screen");
-                            }
-                            setWatchedStreamUserId(null);
-                        }}
+                        onLeaveStream={() =>
+                            handleLeaveStream(currentlyWatchedStream.userId)
+                        }
                         onContextMenu={(e) =>
                             handleContextMenu(e, currentlyWatchedStream.userId)
                         }
@@ -707,17 +831,16 @@ export default observer(({ id }: Props) => {
             {(!isExpanded || !currentlyWatchedStream) && (
                 <div className="participants">
                     {/* Compact stream tiles appearing in line with avatars */}
-                    {activeVideoEntries.map((v) => (
+                    {activeStreamEntries.map((v) => (
                         <CompactStreamTile
                             key={`tile-${v.userId}`}
                             track={v.track}
+                            thumbnail={v.thumbnail}
                             label={v.label}
                             userId={v.userId}
-                            isSelf={v.userId === selfId}
+                            isSelf={v.isSelf}
                             isWatched={watchedStreamUserId === v.userId}
-                            onWatch={() => {
-                                setWatchedStreamUserId(v.userId);
-                            }}
+                            onWatch={() => handleWatchStream(v.userId)}
                             onContextMenu={(e) =>
                                 handleContextMenu(e, v.userId)
                             }
@@ -851,7 +974,7 @@ export default observer(({ id }: Props) => {
                             <button
                                 className="menu-item danger"
                                 onClick={() => {
-                                    setWatchedStreamUserId(null);
+                                    handleLeaveStream(contextMenu.userId);
                                     setContextMenu(null);
                                 }}>
                                 <LogOut size={16} /> Покинуть трансляцию
@@ -860,7 +983,7 @@ export default observer(({ id }: Props) => {
                             <button
                                 className="menu-item"
                                 onClick={() => {
-                                    setWatchedStreamUserId(contextMenu.userId);
+                                    handleWatchStream(contextMenu.userId);
                                     setContextMenu(null);
                                 }}>
                                 <Show size={16} /> Смотреть трансляцию

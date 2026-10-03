@@ -29,6 +29,8 @@ interface VoiceEvents {
     userStopProduce: (userId: string, type: ProduceType) => void;
 
     activeSpeakersChanged: (speakers: string[]) => void;
+    screenThumbnailUpdated: (userId: string, dataUrl: string) => void;
+    screenSubscriptionChanged: (userId: string, subscribed: boolean) => void;
 }
 
 export interface ScreenShareOptions {
@@ -186,6 +188,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public activeSpeakers: Set<string> = new Set();
     public videoTracks: Map<string, Track> = new Map();
 
+    // Screen share subscriptions and snapshots for 0 KB/s inactive preview
+    public videoPublications: Map<string, RemoteTrackPublication> = new Map();
+    public screenAudioPublications: Map<string, RemoteTrackPublication> = new Map();
+    public screenThumbnails: Map<string, string> = new Map();
+    public watchingUserId: string | null = null;
+
     supported(): boolean {
         return (
             typeof window !== "undefined" &&
@@ -224,6 +232,155 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         }
     }
 
+    /**
+     * Grabs a single initial preview frame from a newly published remote screen share
+     * and immediately unsubscribes (setSubscribed(false)) so the SFU stops transmitting
+     * video packets, keeping bandwidth consumption at 0 KB/s until the user clicks "Watch".
+     */
+    private captureSingleFrame(
+        uid: string,
+        track: RemoteTrack,
+        publication: RemoteTrackPublication,
+    ) {
+        try {
+            const video = document.createElement("video");
+            video.muted = true;
+            video.playsInline = true;
+            video.autoplay = true;
+            video.style.position = "fixed";
+            video.style.left = "-9999px";
+            video.style.top = "-9999px";
+            video.style.width = "480px";
+            video.style.height = "270px";
+            video.style.opacity = "0";
+            video.style.pointerEvents = "none";
+            document.body.appendChild(video);
+
+            let unsubscribed = false;
+            const done = () => {
+                if (unsubscribed) return;
+                unsubscribed = true;
+                try {
+                    track.detach(video);
+                    video.remove();
+                } catch (_) {}
+                if (this.watchingUserId !== uid) {
+                    try {
+                        publication.setSubscribed(false);
+                    } catch (err) {
+                        console.warn(
+                            "[VoiceClient] Failed to unsubscribe initial preview:",
+                            err,
+                        );
+                    }
+                }
+            };
+
+            const takeSnapshot = () => {
+                try {
+                    if (video.videoWidth > 0 && video.videoHeight > 0) {
+                        const canvas = document.createElement("canvas");
+                        const targetWidth = Math.min(video.videoWidth, 480);
+                        const targetHeight = Math.round(
+                            (targetWidth / video.videoWidth) * video.videoHeight,
+                        );
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+                        const ctx = canvas.getContext("2d");
+                        if (ctx) {
+                            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+                            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                            this.screenThumbnails.set(uid, dataUrl);
+                            this.emit("screenThumbnailUpdated", uid, dataUrl);
+                        }
+                    }
+                } catch (e) {
+                    console.warn("[VoiceClient] Snapshot capture error:", e);
+                } finally {
+                    done();
+                }
+            };
+
+            video.onloadeddata = () => {
+                setTimeout(takeSnapshot, 80);
+            };
+
+            track.attach(video);
+            video.play().catch(() => {});
+
+            // Safety fallback: unsubscribe within 1.5 seconds if video never fires onloadeddata
+            setTimeout(done, 1500);
+        } catch (e) {
+            console.warn("[VoiceClient] captureSingleFrame error:", e);
+            if (this.watchingUserId !== uid) {
+                try {
+                    publication.setSubscribed(false);
+                } catch (_) {}
+            }
+        }
+    }
+
+    setWatchingUserId(userId: string | null) {
+        const prevWatching = this.watchingUserId;
+        this.watchingUserId = userId;
+
+        // Unsubscribe from previously watched stream
+        if (prevWatching && prevWatching !== userId && this.room) {
+            const pub = this.videoPublications.get(prevWatching);
+            if (pub && pub.isSubscribed) {
+                try {
+                    pub.setSubscribed(false);
+                } catch (_) {}
+            }
+            const audioPub = this.screenAudioPublications.get(prevWatching);
+            if (audioPub && audioPub.isSubscribed) {
+                try {
+                    audioPub.setSubscribed(false);
+                } catch (_) {}
+            }
+            document
+                .querySelectorAll(`audio[id^='audio-screen-${prevWatching}-']`)
+                .forEach((el) => {
+                    el.remove();
+                });
+        }
+
+        // Subscribe to newly watched stream
+        if (userId && this.room) {
+            const pub = this.videoPublications.get(userId);
+            if (pub) {
+                if (!pub.isSubscribed) {
+                    try {
+                        pub.setSubscribed(true);
+                    } catch (_) {}
+                }
+                if (pub.track) {
+                    this.videoTracks.set(userId, pub.track as any);
+                    this.emit("userStartProduce", userId, "screen");
+                }
+            }
+            const audioPub = this.screenAudioPublications.get(userId);
+            if (audioPub) {
+                if (!audioPub.isSubscribed) {
+                    try {
+                        audioPub.setSubscribed(true);
+                    } catch (_) {}
+                }
+                if (audioPub.track) {
+                    const el = audioPub.track.attach();
+                    el.id = `audio-screen-${userId}-${audioPub.track.sid}`;
+                    el.muted = this.isDeaf;
+                    document.body.appendChild(el);
+                }
+            }
+        }
+    }
+
+    setScreenThumbnail(userId: string, dataUrl: string) {
+        this.screenThumbnails.set(userId, dataUrl);
+        this.emit("screenThumbnailUpdated", userId, dataUrl);
+    }
+
     async connect(
         url: string,
         roomId: string,
@@ -247,6 +404,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.participants.clear();
         this.activeSpeakers.clear();
         this.videoTracks.clear();
+        this.videoPublications.clear();
+        this.screenAudioPublications.clear();
+        this.screenThumbnails.clear();
+        this.watchingUserId = null;
 
         const room = new Room({
             audioCaptureDefaults: DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
@@ -277,6 +438,15 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             this.participants.delete(uid);
             this.activeSpeakers.delete(uid);
             this.videoTracks.delete(uid);
+            this.videoPublications.delete(uid);
+            this.screenAudioPublications.delete(uid);
+            this.screenThumbnails.delete(uid);
+            if (this.watchingUserId === uid) {
+                this.watchingUserId = null;
+            }
+            document
+                .querySelectorAll(`audio[id^='audio-screen-${uid}-']`)
+                .forEach((el) => el.remove());
             this.emit("userLeft", uid);
         });
 
@@ -294,6 +464,55 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         });
 
         room.on(
+            RoomEvent.TrackPublished,
+            (
+                publication: RemoteTrackPublication,
+                participant: RemoteParticipant,
+            ) => {
+                const uid = participant.identity;
+                if (publication.source === Track.Source.ScreenShare) {
+                    this.videoPublications.set(uid, publication);
+                    const u = this.participants.get(uid) || {};
+                    u.screen = true;
+                    this.participants.set(uid, u);
+                    this.emit("userStartProduce", uid, "screen");
+                } else if (publication.source === Track.Source.ScreenShareAudio) {
+                    this.screenAudioPublications.set(uid, publication);
+                }
+            },
+        );
+
+        room.on(
+            RoomEvent.TrackUnpublished,
+            (
+                publication: RemoteTrackPublication,
+                participant: RemoteParticipant,
+            ) => {
+                const uid = participant.identity;
+                if (publication.source === Track.Source.ScreenShare) {
+                    this.videoPublications.delete(uid);
+                    this.screenThumbnails.delete(uid);
+                    this.videoTracks.delete(uid);
+                    const u = this.participants.get(uid);
+                    if (u) {
+                        u.screen = false;
+                    }
+                    if (this.watchingUserId === uid) {
+                        this.watchingUserId = null;
+                    }
+                    this.emit("userStopProduce", uid, "screen");
+                } else if (publication.source === Track.Source.ScreenShareAudio) {
+                    this.screenAudioPublications.delete(uid);
+                    document
+                        .querySelectorAll(`audio[id^='audio-screen-${uid}-']`)
+                        .forEach((el) => {
+                            el.remove();
+                        });
+                }
+            },
+        );
+
+        room.on(
             RoomEvent.TrackSubscribed,
             (
                 track: RemoteTrack,
@@ -304,21 +523,41 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 const u = this.participants.get(uid) || {};
 
                 if (track.kind === Track.Kind.Audio) {
-                    const el = track.attach();
-                    el.id = `audio-${uid}-${track.sid}`;
-                    if (this.isDeaf) {
-                        el.muted = true;
-                    }
-                    document.body.appendChild(el);
+                    if (publication.source === Track.Source.ScreenShareAudio) {
+                        this.screenAudioPublications.set(uid, publication);
+                        if (this.watchingUserId !== uid) {
+                            try {
+                                publication.setSubscribed(false);
+                            } catch (_) {}
+                        } else {
+                            const el = track.attach();
+                            el.id = `audio-screen-${uid}-${track.sid}`;
+                            el.muted = this.isDeaf;
+                            document.body.appendChild(el);
+                        }
+                    } else {
+                        const el = track.attach();
+                        el.id = `audio-${uid}-${track.sid}`;
+                        if (this.isDeaf) {
+                            el.muted = true;
+                        }
+                        document.body.appendChild(el);
 
-                    u.audio = true;
-                    this.participants.set(uid, u);
-                    this.emit("userStartProduce", uid, "audio");
+                        u.audio = true;
+                        this.participants.set(uid, u);
+                        this.emit("userStartProduce", uid, "audio");
+                    }
                 } else if (track.kind === Track.Kind.Video) {
+                    this.videoPublications.set(uid, publication);
                     u.screen = true;
                     this.participants.set(uid, u);
-                    this.videoTracks.set(uid, track);
-                    this.emit("userStartProduce", uid, "screen");
+
+                    if (this.watchingUserId === uid) {
+                        this.videoTracks.set(uid, track);
+                        this.emit("userStartProduce", uid, "screen");
+                    } else {
+                        this.captureSingleFrame(uid, track, publication);
+                    }
                 }
             },
         );
@@ -335,17 +574,16 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
                 if (track.kind === Track.Kind.Audio) {
                     track.detach().forEach((el) => el.remove());
-                    if (u) {
-                        u.audio = false;
+                    if (publication.source !== Track.Source.ScreenShareAudio) {
+                        if (u) {
+                            u.audio = false;
+                        }
+                        this.emit("userStopProduce", uid, "audio");
                     }
-                    this.emit("userStopProduce", uid, "audio");
                 } else if (track.kind === Track.Kind.Video) {
                     track.detach().forEach((el) => el.remove());
                     this.videoTracks.delete(uid);
-                    if (u) {
-                        u.screen = false;
-                    }
-                    this.emit("userStopProduce", uid, "screen");
+                    this.emit("screenSubscriptionChanged", uid, false);
                 }
             },
         );
@@ -427,6 +665,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.participants.clear();
         this.activeSpeakers.clear();
         this.videoTracks.clear();
+        this.videoPublications.clear();
+        this.screenAudioPublications.clear();
+        this.screenThumbnails.clear();
+        this.watchingUserId = null;
         this.audioProducer = undefined;
         this.screenProducer = undefined;
         // Keep isDeaf and isMuted intact across calls
