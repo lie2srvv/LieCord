@@ -494,23 +494,25 @@ function BotCard({ bot, onDelete, onUpdate }: Props) {
                             <Text id="app.settings.pages.bots.add" />
                         </Button>
                         <Button
-                        palette="error"
-                            onClick={ async () => {
-                                    modalController.push({
-                                        type: "reset_bot_token",
-                                        target: { name: user.username, id: bot._id },
-                                        callback: async () => {
-                                            const updatedBot = await client.bots.fetch(bot._id);
-                                            setData({
-                                                ...data,
-                                                token: updatedBot.bot.token
-                                            })
-                                        }
-                                    })
-
-                            }
-                            }>
-                                <Text id="app.settings.pages.bots.reset_token" />
+                            palette="error"
+                            onClick={async () => {
+                                modalController.push({
+                                    type: "reset_bot_token",
+                                    target: {
+                                        name: user.username,
+                                        id: bot._id,
+                                    },
+                                    callback: async () => {
+                                        const updatedBot =
+                                            await client.bots.fetch(bot._id);
+                                        setData({
+                                            ...data,
+                                            token: updatedBot.bot.token,
+                                        });
+                                    },
+                                });
+                            }}>
+                            <Text id="app.settings.pages.bots.reset_token" />
                         </Button>
                     </>
                 )}
@@ -542,7 +544,10 @@ export const MyBots = observer(() => {
                 action="chevron">
                 <Text id="app.settings.pages.bots.create_bot" />
             </CategoryButton>
-            <h5>By creating a bot, you are agreeing to the Acceptable Usage Policy.</h5>
+            <h5>
+                By creating a bot, you are agreeing to the Acceptable Usage
+                Policy.
+            </h5>
             <hr />
             <h3>
                 <Text id="app.settings.pages.bots.title" />

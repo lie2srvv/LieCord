@@ -95,9 +95,7 @@ export const Overview = observer(({ server }: Props) => {
             />
             <div className={styles.markdown}>
                 <Markdown size="24" />
-                <h5>
-                    {"Server descriptions support Markdown formatting."}
-                </h5>
+                <h5>{"Server descriptions support Markdown formatting."}</h5>
             </div>
             <hr />
             <h3>

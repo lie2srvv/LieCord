@@ -23,7 +23,8 @@ export default function CreateServer({
             title={<Text id="app.main.servers.create" />}
             description={
                 <div>
-                    By creating this server, you agree to the Acceptable Use Policy.
+                    By creating this server, you agree to the Acceptable Use
+                    Policy.
                 </div>
             }
             schema={{

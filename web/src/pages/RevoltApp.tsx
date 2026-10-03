@@ -7,6 +7,7 @@ import { useEffect, useState } from "preact/hooks";
 import ContextMenus from "../lib/ContextMenus";
 import { isTouchscreenDevice } from "../lib/isTouchscreenDevice";
 
+import { IncomingCallModal } from "../components/common/voice/IncomingCallModal";
 import { Titlebar } from "../components/native/Titlebar";
 import BottomNavigation from "../components/navigation/BottomNavigation";
 import LeftSidebar from "../components/navigation/LeftSidebar";
@@ -22,7 +23,6 @@ import InviteBot from "./invite/InviteBot";
 import ChannelSettings from "./settings/ChannelSettings";
 import ServerSettings from "./settings/ServerSettings";
 import Settings from "./settings/Settings";
-import { IncomingCallModal } from "../components/common/voice/IncomingCallModal";
 
 const AppContainer = styled.div`
     background-size: cover !important;

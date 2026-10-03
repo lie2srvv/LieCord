@@ -1,11 +1,12 @@
 import { action, computed, makeAutoObservable } from "mobx";
 import { API, Client } from "revolt.js";
 
+import { voiceState } from "../../lib/vortex/VoiceState";
+
 import { state } from "../../mobx/State";
 
 import { resetMemberSidebarFetched } from "../../components/navigation/right/MemberSidebar";
 import { modalController } from "../modals/ModalController";
-import { voiceState } from "../../lib/vortex/VoiceState";
 
 /**
  * Current lifecycle state

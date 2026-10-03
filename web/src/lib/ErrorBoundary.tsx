@@ -60,7 +60,6 @@ export default function ErrorBoundary({ children, section }: Props) {
 
     useEffect(() => {
         if (error) {
-            
         }
     }, [error]);
 

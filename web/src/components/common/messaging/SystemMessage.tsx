@@ -178,23 +178,38 @@ export const SystemMessage = observer(
                     try {
                         const start = decodeTime(message._id);
                         const end = new Date(sys.finished_at).getTime();
-                        const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+                        const diffSec = Math.max(
+                            0,
+                            Math.floor((end - start) / 1000),
+                        );
                         if (diffSec < 60) {
-                            durationText = ", который продлился " + diffSec + " сек.";
+                            durationText =
+                                ", который продлился " + diffSec + " сек.";
                         } else if (diffSec < 3600) {
                             const min = Math.floor(diffSec / 60);
                             const sec = diffSec % 60;
-                            durationText = ", который продлился " + min + " мин. " + sec + " сек.";
+                            durationText =
+                                ", который продлился " +
+                                min +
+                                " мин. " +
+                                sec +
+                                " сек.";
                         } else {
                             const hr = Math.floor(diffSec / 3600);
                             const min = Math.floor((diffSec % 3600) / 60);
-                            durationText = ", который продлился " + hr + " ч. " + min + " мин.";
+                            durationText =
+                                ", который продлился " +
+                                hr +
+                                " ч. " +
+                                min +
+                                " мин.";
                         }
                     } catch (e) {}
                 }
                 children = (
                     <span>
-                        <UserShort user={data.by} /> начал звонок{durationText || "."}
+                        <UserShort user={data.by} /> начал звонок
+                        {durationText || "."}
                     </span>
                 );
                 break;

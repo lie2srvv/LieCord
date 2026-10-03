@@ -12,6 +12,7 @@ import { IconButton } from "@revoltchat/ui";
 
 import { isTouchscreenDevice } from "../../../lib/isTouchscreenDevice";
 import { stopPropagation } from "../../../lib/stopPropagation";
+import { voiceState } from "../../../lib/vortex/VoiceState";
 
 import { modalController } from "../../../controllers/modals/ModalController";
 import ChannelIcon from "../../common/ChannelIcon";
@@ -19,7 +20,6 @@ import Tooltip from "../../common/Tooltip";
 import UserIcon from "../../common/user/UserIcon";
 import { Username } from "../../common/user/UserShort";
 import UserStatus from "../../common/user/UserStatus";
-import { voiceState } from "../../../lib/vortex/VoiceState";
 
 type CommonProps = Omit<
     JSX.HTMLAttributes<HTMLDivElement>,
@@ -87,8 +87,8 @@ export const UserButton = observer((props: UserProps) => {
                             <span style={{ color: "#57f287", fontWeight: 600 }}>
                                 📞 В звонке
                             </span>
-                        ) : typeof channel?.last_message?.content === "string" &&
-                          alert ? (
+                        ) : typeof channel?.last_message?.content ===
+                              "string" && alert ? (
                             channel.last_message.content.slice(0, 32)
                         ) : (
                             <UserStatus user={user} tooltip />
@@ -162,7 +162,9 @@ export const ChannelButton = observer((props: ChannelProps) => {
 
     const alerting = alert && !muted && !active;
     const isVoice = channel.channel_type === "VoiceChannel";
-    const voiceParts = isVoice ? voiceState.getChannelParticipants(channel._id) : [];
+    const voiceParts = isVoice
+        ? voiceState.getChannelParticipants(channel._id)
+        : [];
     const hasVoice =
         channel.channel_type === "Group" &&
         voiceState.isChannelActive(channel._id);

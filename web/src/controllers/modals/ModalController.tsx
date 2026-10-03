@@ -45,13 +45,13 @@ import OutOfDate from "./components/OutOfDate";
 import PendingFriendRequests from "./components/PendingFriendRequests";
 import ReportContent from "./components/Report";
 import ReportSuccess from "./components/ReportSuccess";
+import ScreenShareModal from "./components/ScreenShareModal";
 import ServerIdentity from "./components/ServerIdentity";
 import ServerInfo from "./components/ServerInfo";
 import ShowToken from "./components/ShowToken";
 import SignOutSessions from "./components/SignOutSessions";
 import SignedOut from "./components/SignedOut";
 import UserPicker from "./components/UserPicker";
-import ScreenShareModal from "./components/ScreenShareModal";
 import { OnboardingModal } from "./components/legacy/Onboarding";
 import { UserProfile } from "./components/legacy/UserProfile";
 import { Modal } from "./types";
@@ -299,5 +299,5 @@ export const modalController = new ModalControllerExtended({
     modify_displayname: ModifyDisplayname,
     changelog_usernames: ChangelogUsernames,
     reset_bot_token: Confirmation,
-    screen_share: ScreenShareModal
+    screen_share: ScreenShareModal,
 });

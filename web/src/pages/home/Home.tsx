@@ -132,7 +132,9 @@ export default observer(() => {
                                 src="/assets/logo_round.png"
                                 alt="LieCord"
                                 onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
+                                    (
+                                        e.target as HTMLImageElement
+                                    ).style.display = "none";
                                 }}
                             />
                             <span>LieCord</span>

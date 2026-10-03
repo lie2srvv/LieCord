@@ -198,7 +198,6 @@ export const Languages = observer(() => {
                     .filter(([, lang]) => lang.cat === "alt")
                     .map(EntryFactory)}
             </div>
-
         </div>
     );
 });

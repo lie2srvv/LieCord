@@ -13,6 +13,7 @@ import { useEffect, useState } from "preact/hooks";
 import ErrorBoundary from "../../lib/ErrorBoundary";
 import { internalSubscribe } from "../../lib/eventEmitter";
 import { isTouchscreenDevice } from "../../lib/isTouchscreenDevice";
+import { voiceState } from "../../lib/vortex/VoiceState";
 
 import { useApplicationState } from "../../mobx/State";
 import { SIDEBAR_MEMBERS } from "../../mobx/stores/Layout";
@@ -22,17 +23,16 @@ import MessageBox from "../../components/common/messaging/MessageBox";
 import JumpToBottom from "../../components/common/messaging/bars/JumpToBottom";
 import NewMessages from "../../components/common/messaging/bars/NewMessages";
 import TypingIndicator from "../../components/common/messaging/bars/TypingIndicator";
+import {
+    VoiceCallBanner,
+    VoiceChannelLobby,
+} from "../../components/common/voice/VoiceCallOffering";
 import RightSidebar from "../../components/navigation/RightSidebar";
 import { PageHeader } from "../../components/ui/Header";
 import { useClient } from "../../controllers/client/ClientController";
 import ChannelHeader from "./ChannelHeader";
 import { MessageArea } from "./messaging/MessageArea";
 import VoiceHeader from "./voice/VoiceHeader";
-import {
-    VoiceCallBanner,
-    VoiceChannelLobby,
-} from "../../components/common/voice/VoiceCallOffering";
-import { voiceState } from "../../lib/vortex/VoiceState";
 
 const ChannelMain = styled.div.attrs({ "data-component": "channel" })`
     flex-grow: 1;

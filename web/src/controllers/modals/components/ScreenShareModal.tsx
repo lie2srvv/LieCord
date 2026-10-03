@@ -1,8 +1,11 @@
-import { useState, useEffect } from "preact/hooks";
 import styled from "styled-components/macro";
-import { ModalProps } from "../types";
+
+import { useState, useEffect } from "preact/hooks";
+
 import { voiceState } from "../../../lib/vortex/VoiceState";
+
 import { ScreenSource } from "../../../types/native";
+import { ModalProps } from "../types";
 
 const Backdrop = styled.div`
     position: fixed;
@@ -87,8 +90,10 @@ const Tabs = styled.div`
 const TabButton = styled.button<{ active: boolean }>`
     background: transparent;
     border: none;
-    border-bottom: 2px solid ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
-    color: ${(props) => (props.active ? "#ffffff" : "var(--secondary-foreground, #949ba4)")};
+    border-bottom: 2px solid
+        ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
+    color: ${(props) =>
+        props.active ? "#ffffff" : "var(--secondary-foreground, #949ba4)"};
     font-size: 15px;
     font-weight: 600;
     padding: 8px 12px 10px;
@@ -127,14 +132,16 @@ const SourceCard = styled.div<{ selected: boolean }>`
     overflow: hidden;
     cursor: pointer;
     border: 2px solid
-        ${(props) => (props.selected ? "var(--accent, #5865f2)" : "transparent")};
+        ${(props) =>
+            props.selected ? "var(--accent, #5865f2)" : "transparent"};
     box-shadow: ${(props) =>
         props.selected ? "0 0 0 1px var(--accent, #5865f2)" : "none"};
     transition: transform 0.1s, border-color 0.15s, background-color 0.15s;
 
     &:hover {
         background: var(--tertiary-background, #313338);
-        ${(props) => !props.selected && "border-color: rgba(255, 255, 255, 0.2);"}
+        ${(props) =>
+            !props.selected && "border-color: rgba(255, 255, 255, 0.2);"}
     }
 
     .thumb-wrapper {
@@ -213,7 +220,8 @@ const SettingsRow = styled.div`
 `;
 
 const OptionButton = styled.button<{ active: boolean }>`
-    background: ${(props) => (props.active ? "var(--accent, #5865f2)" : "transparent")};
+    background: ${(props) =>
+        props.active ? "var(--accent, #5865f2)" : "transparent"};
     color: ${(props) => (props.active ? "#ffffff" : "#949ba4")};
     border: none;
     padding: 6px 12px;
@@ -299,7 +307,9 @@ const RESOLUTION_SPECS: Record<
 export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     const [tab, setTab] = useState<"screens" | "windows">("screens");
     const [sources, setSources] = useState<ScreenSource[]>([]);
-    const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+    const [selectedSourceId, setSelectedSourceId] = useState<string | null>(
+        null,
+    );
     const [loading, setLoading] = useState(false);
     const [resolution, setResolution] = useState<ResolutionOption>("720");
     const [fps, setFps] = useState<FpsOption>("30");
@@ -308,8 +318,8 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
 
     const hasNativePicker = Boolean(
         typeof window !== "undefined" &&
-        window.native &&
-        typeof window.native.getScreenSources === "function"
+            window.native &&
+            typeof window.native.getScreenSources === "function",
     );
 
     useEffect(() => {
@@ -321,7 +331,9 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                     setSources(srcs);
                     if (srcs.length > 0) {
                         const firstScreen = srcs.find((s) => s.isScreen);
-                        setSelectedSourceId(firstScreen ? firstScreen.id : srcs[0].id);
+                        setSelectedSourceId(
+                            firstScreen ? firstScreen.id : srcs[0].id,
+                        );
                         if (!firstScreen && srcs.some((s) => !s.isScreen)) {
                             setTab("windows");
                         }
@@ -337,21 +349,29 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
     }, [hasNativePicker]);
 
     const filteredSources = sources.filter((s) =>
-        tab === "screens" ? s.isScreen : !s.isScreen
+        tab === "screens" ? s.isScreen : !s.isScreen,
     );
 
     const handleShare = async () => {
         setIsSubmitting(true);
         try {
-            const spec = RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["720"];
+            const spec =
+                RESOLUTION_SPECS[resolution] || RESOLUTION_SPECS["720"];
             const resObj = {
                 width: spec.width,
                 height: spec.height,
                 frameRate: Number(fps),
             };
 
-            if (hasNativePicker && selectedSourceId && window.native.selectScreenSource) {
-                await window.native.selectScreenSource(selectedSourceId, shareAudio);
+            if (
+                hasNativePicker &&
+                selectedSourceId &&
+                window.native.selectScreenSource
+            ) {
+                await window.native.selectScreenSource(
+                    selectedSourceId,
+                    shareAudio,
+                );
             }
 
             await voiceState.startProducing("screen", {
@@ -384,7 +404,9 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                 active={tab === "screens"}
                                 onClick={() => {
                                     setTab("screens");
-                                    const first = sources.find((s) => s.isScreen);
+                                    const first = sources.find(
+                                        (s) => s.isScreen,
+                                    );
                                     if (first) setSelectedSourceId(first.id);
                                 }}>
                                 Экраны
@@ -393,7 +415,9 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                 active={tab === "windows"}
                                 onClick={() => {
                                     setTab("windows");
-                                    const first = sources.find((s) => !s.isScreen);
+                                    const first = sources.find(
+                                        (s) => !s.isScreen,
+                                    );
                                     if (first) setSelectedSourceId(first.id);
                                 }}>
                                 Окна приложений
@@ -402,7 +426,9 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
 
                         <SourcesGrid>
                             {loading ? (
-                                <EmptyNotice>Загрузка источников...</EmptyNotice>
+                                <EmptyNotice>
+                                    Загрузка источников...
+                                </EmptyNotice>
                             ) : filteredSources.length === 0 ? (
                                 <EmptyNotice>
                                     {tab === "screens"
@@ -413,8 +439,12 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                 filteredSources.map((source) => (
                                     <SourceCard
                                         key={source.id}
-                                        selected={selectedSourceId === source.id}
-                                        onClick={() => setSelectedSourceId(source.id)}>
+                                        selected={
+                                            selectedSourceId === source.id
+                                        }
+                                        onClick={() =>
+                                            setSelectedSourceId(source.id)
+                                        }>
                                         <div className="thumb-wrapper">
                                             <img
                                                 src={source.thumbnail}
@@ -430,7 +460,9 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                                     alt=""
                                                 />
                                             )}
-                                            <span title={source.name}>{source.name}</span>
+                                            <span title={source.name}>
+                                                {source.name}
+                                            </span>
                                         </div>
                                     </SourceCard>
                                 ))
@@ -438,8 +470,14 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                         </SourcesGrid>
                     </>
                 ) : (
-                    <div style={{ padding: "24px 20px", fontSize: "14px", color: "#949ba4" }}>
-                        Окно выбора экрана или приложения откроется после нажатия кнопки «В эфир».
+                    <div
+                        style={{
+                            padding: "24px 20px",
+                            fontSize: "14px",
+                            color: "#949ba4",
+                        }}>
+                        Окно выбора экрана или приложения откроется после
+                        нажатия кнопки «В эфир».
                     </div>
                 )}
 
@@ -519,7 +557,10 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                     </button>
                     <button
                         className="submit-btn"
-                        disabled={isSubmitting || (hasNativePicker && !selectedSourceId)}
+                        disabled={
+                            isSubmitting ||
+                            (hasNativePicker && !selectedSourceId)
+                        }
                         onClick={handleShare}>
                         {isSubmitting ? "Подключение..." : "В эфир"}
                     </button>

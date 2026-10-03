@@ -15,7 +15,11 @@ const INTERVAL_HOUR = 36e5;
 let forceUpdate = false;
 let registration: ServiceWorkerRegistration | undefined;
 
-if (typeof window !== 'undefined' && window.isNative && 'serviceWorker' in navigator) {
+if (
+    typeof window !== "undefined" &&
+    window.isNative &&
+    "serviceWorker" in navigator
+) {
     navigator.serviceWorker.getRegistrations().then((regs) => {
         for (const reg of regs) {
             reg.unregister();

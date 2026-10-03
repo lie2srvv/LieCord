@@ -1,230 +1,229 @@
-import { join } from "node:path";
-
 import {
-  BrowserWindow,
-  Menu,
-  MenuItem,
   app,
-  desktopCapturer,
-  ipcMain,
+  BrowserWindow,
+  dialog,
+  shell,
+  nativeTheme,
   nativeImage,
+  ipcMain,
   session,
+  desktopCapturer,
   systemPreferences,
 } from "electron";
+import { autoUpdater } from "electron-updater";
+import { release } from "os";
+import { join } from "path";
+import { pathToFileURL } from "url";
+import { inspect } from "util";
+import log from "electron-log";
 
-import windowIconAsset from "../../assets/desktop/icon.png?asset";
+import { ConfigurationStore } from "./store";
+import { getAssetPath } from "./util";
 
-import { config } from "./config";
-import { updateTrayMenu } from "./tray";
+// Disable GPU Acceleration for Windows 7
+if (release().startsWith("6.1")) app.disableHardwareAcceleration();
 
-// global reference to main window
-export let mainWindow: BrowserWindow;
+// Set application name for Windows 10+ notifications
+if (process.platform === "win32") app.setAppUserModelId(app.getName());
 
-// currently in-use build
-export const BUILD_URL = new URL(
-  app.commandLine.hasSwitch("force-server")
-    ? app.commandLine.getSwitchValue("force-server")
-    : process.env.VITE_DEV_SERVER_URL ?? "https://cord.lie2srvv.com",
-);
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
 
-// internal window state
-let shouldQuit = false;
-
-// pending screen selection from custom UI
 let pendingScreenSource: any = null;
 let pendingScreenAudio: boolean = false;
 
-// load the window icon
-const windowIcon = nativeImage.createFromDataURL(windowIconAsset);
+export async function createWindow(store: ConfigurationStore) {
+  let win: BrowserWindow | null = null;
+  const isDev = process.env.NODE_ENV === "development";
 
-// windowIcon.setTemplateImage(true);
+  // Register push notifications
+  // registerPushNotifications();
 
-/**
- * Create the main application window
- */
-export function createMainWindow() {
-  // (CLI arg --hidden or config)
-  const startHidden =
-    app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
-  const isMacOS = process.platform === "darwin";
+  // Create native browser window
+  const minWidth = 400;
+  const minHeight = 400;
 
-  mainWindow = new BrowserWindow({
-    minWidth: 300,
-    minHeight: 300,
-    width: 1280,
-    height: 720,
-    backgroundColor: "#151313",
-    frame: isMacOS ? true : !config.customFrame,
-    titleBarStyle: isMacOS ? "hidden" : "default",
-    trafficLightPosition: isMacOS ? { x: 8, y: 8 } : undefined,
-    icon: windowIcon,
-    show: !startHidden,
+  let bounds = store.get("bounds");
+  if (
+    bounds &&
+    (bounds.width < minWidth ||
+      bounds.height < minHeight ||
+      typeof bounds.x !== "number" ||
+      typeof bounds.y !== "number")
+  ) {
+    bounds = undefined;
+  }
+
+  const defaultTheme = store.get("theme");
+
+  const appIcon = nativeImage.createFromPath(getAssetPath("icon.png"));
+
+  win = new BrowserWindow({
+    title: "LieCord",
+    ...(bounds ? bounds : { width: 1280, height: 720 }),
+    minWidth,
+    minHeight,
+    show: false,
+    frame: false,
+    icon: appIcon,
+    backgroundColor: defaultTheme === "light" ? "#f6f6f6" : "#191919",
     webPreferences: {
-      preload: join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      spellcheck: true,
-      devTools: true,
+      webSecurity: false,
+      preload: join(__dirname, "../preload/preload.js"),
     },
   });
 
-  // remove default menu
-  mainWindow.setMenu(null);
-
-  // restore window state if available
-  if (config.windowState.x > 0 || config.windowState.y > 0) {
-    mainWindow.setPosition(
-      config.windowState.x ?? 0,
-      config.windowState.y ?? 0,
-    );
+  if (process.platform === "darwin") {
+    app.dock.setIcon(appIcon);
   }
 
-  if (config.windowState.width > 0 && config.windowState.height > 0) {
-    mainWindow.setSize(
-      config.windowState.width ?? 1280,
-      config.windowState.height ?? 720,
-    );
-  }
+  // Handle updates
+  log.transports.file.level = "debug";
+  autoUpdater.logger = log;
 
-  if (config.windowState.isMaximised && !startHidden) {
-    mainWindow.maximize();
-  }
+  autoUpdater.on("update-available", () => {
+    win?.webContents.send("updater", "available");
+  });
 
-  // Forward console messages to terminal for easy debugging
-  mainWindow.webContents.on(
-    "console-message",
-    (_event, level, message, line, sourceId) => {
-      console.log(`[Renderer L${level}]: ${message} (${sourceId}:${line})`);
-    },
-  );
+  autoUpdater.on("update-downloaded", () => {
+    win?.webContents.send("updater", "downloaded");
+  });
 
-  mainWindow.webContents.on(
-    "did-fail-load",
-    (_event, errorCode, errorDescription, validatedURL) => {
-      console.error(
-        `[Renderer Load Failed]: ${errorCode} ${errorDescription} (${validatedURL})`,
-      );
-    },
-  );
+  autoUpdater.on("error", (err) => {
+    win?.webContents.send("updater", "error", err);
+  });
 
-  // Clear any stale Service Workers or cache to guarantee fresh bundles
-  mainWindow.webContents.session.clearStorageData({
-    storages: ['serviceworkers', 'cachestorage']
-  }).catch(() => {});
-
-  // load the remote client
-  mainWindow.loadURL(BUILD_URL.toString());
-
-  // hide window when closed (if minimise to tray is enabled)
-  mainWindow.on("close", (event) => {
-    if (!shouldQuit && config.minimiseToTray) {
-      event.preventDefault();
-      mainWindow.hide();
+  ipcMain.on("check-updates", () => {
+    if (!isDev) {
+      autoUpdater.checkForUpdates();
     }
   });
 
-  mainWindow.on("show", updateTrayMenu);
-  mainWindow.on("hide", updateTrayMenu);
+  ipcMain.on("install-update", () => {
+    autoUpdater.quitAndInstall();
+  });
 
-  function saveWindowState() {
-    config.windowState = {
-      x: mainWindow.getPosition()[0],
-      y: mainWindow.getPosition()[1],
-      width: mainWindow.getSize()[0],
-      height: mainWindow.getSize()[1],
-      isMaximised: mainWindow.isMaximized(),
-    };
+  // Track window bounds
+  function saveBounds() {
+    if (!win) return;
+    store.set("bounds", win.getNormalBounds());
   }
 
-  mainWindow.on("maximize", saveWindowState);
-  mainWindow.on("unmaximize", saveWindowState);
-  mainWindow.on("moved", saveWindowState);
-  mainWindow.on("resized", saveWindowState);
+  win.on("resized", saveBounds);
+  win.on("moved", saveBounds);
 
-  // handle shortcuts
-  mainWindow.webContents.on("before-input-event", (event, input) => {
-    // DevTools: F12 or Ctrl+Shift+I
-    if (
-      input.key === "F12" ||
-      (input.control && input.shift && input.key.toLowerCase() === "i")
-    ) {
-      if (input.type === "keyDown") {
-        mainWindow.webContents.toggleDevTools();
+  // Set window listeners
+  win.on("maximize", () => win?.webContents.send("maximize", true));
+  win.on("unmaximize", () => win?.webContents.send("maximize", false));
+
+  win.on("enter-full-screen", () => win?.webContents.send("enter-html-full-screen"));
+  win.on("leave-full-screen", () => win?.webContents.send("leave-html-full-screen"));
+
+  nativeTheme.on("updated", () => {
+    win?.webContents.send(
+      "native-theme",
+      nativeTheme.shouldUseDarkColors ? "dark" : "light"
+    );
+  });
+
+  // Open external links in browser
+  win.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+
+  // Allow webContents to show dialogs
+  ipcMain.handle(
+    "dialog",
+    (
+      _,
+      type: "open" | "save" | "message",
+      options: any
+    ) => {
+      if (!win) return;
+      switch (type) {
+        case "open":
+          return dialog.showOpenDialog(win, options);
+        case "save":
+          return dialog.showSaveDialog(win, options);
+        case "message":
+          return dialog.showMessageBox(win, options);
       }
-      return;
     }
+  );
 
-    if (input.control && (input.key === "=" || input.key === "+")) {
-      event.preventDefault();
-      mainWindow.webContents.setZoomLevel(
-        mainWindow.webContents.getZoomLevel() + 1,
-      );
-    } else if (input.control && input.key === "-") {
-      event.preventDefault();
-      mainWindow.webContents.setZoomLevel(
-        mainWindow.webContents.getZoomLevel() - 1,
-      );
-    } else if (input.control && input.key === "0") {
-      event.preventDefault();
-      mainWindow.webContents.setZoomLevel(0);
-    } else if (
-      (input.control || input.meta) &&
-      input.shift &&
-      input.key.toLowerCase() === "r"
-    ) {
-      event.preventDefault();
-      mainWindow.webContents.reloadIgnoringCache();
-    } else if (
-      input.key === "F5" ||
-      ((input.control || input.meta) && input.key.toLowerCase() === "r")
-    ) {
-      event.preventDefault();
-      mainWindow.webContents.reload();
+  ipcMain.on("badge", (_, count) => {
+    app.setBadgeCount(count);
+  });
+
+  ipcMain.on("fullscreen", (_, state) => {
+    win?.setFullScreen(state);
+  });
+
+  ipcMain.on("devtools", () => {
+    win?.webContents.openDevTools();
+  });
+
+  ipcMain.on("theme", (_, theme) => {
+    win?.setBackgroundColor(theme === "light" ? "#f6f6f6" : "#191919");
+  });
+
+  ipcMain.on("open-external", (_, url) => {
+    shell.openExternal(url);
+  });
+
+  ipcMain.on("window-close", () => {
+    win?.close();
+  });
+
+  ipcMain.on("window-minimize", () => {
+    win?.minimize();
+  });
+
+  ipcMain.on("window-maximize", () => {
+    if (win?.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win?.maximize();
     }
   });
 
-  // synchronize configuration on client load
-  mainWindow.webContents.on("did-finish-load", () => {
-    config.sync();
+  ipcMain.handle("get-window-state", () => {
+    return {
+      isMaximized: win?.isMaximized() ?? false,
+      isFullscreen: win?.isFullScreen() ?? false,
+    };
   });
 
-  // context menu for spellcheck (only shown when right-clicking a misspelled word in an editable field)
-  mainWindow.webContents.on("context-menu", (_, params) => {
-    if (!params.isEditable || (!params.misspelledWord && params.dictionarySuggestions.length === 0)) {
-      return;
-    }
-
-    const menu = new Menu();
-
-    // Add each spelling suggestion
-    for (const suggestion of params.dictionarySuggestions) {
-      menu.append(
-        new MenuItem({
-          label: suggestion,
-          click: () => mainWindow.webContents.replaceMisspelling(suggestion),
-        }),
-      );
-    }
-
-    // Allow users to add the misspelled word to the dictionary
-    if (params.misspelledWord) {
-      menu.append(
-        new MenuItem({
-          label: "Add to dictionary",
-          click: () =>
-            mainWindow.webContents.session.addWordToSpellCheckerDictionary(
-              params.misspelledWord,
-            ),
-        }),
-      );
-    }
-
-    if (menu.items.length > 0) {
-      menu.popup();
-    }
+  ipcMain.handle("get-zoom-factor", () => {
+    return win?.webContents.getZoomFactor() ?? 1;
   });
 
-  // IPC handlers for custom screen share picker
+  ipcMain.on("set-zoom-factor", (_, factor) => {
+    win?.webContents.setZoomFactor(factor);
+  });
+
+  ipcMain.handle("get-autostart-status", () => {
+    if (process.platform === "win32" || process.platform === "darwin") {
+      const settings = app.getLoginItemSettings();
+      return settings.openAtLogin;
+    }
+    return false;
+  });
+
+  ipcMain.handle("set-autostart", (_, enable: boolean) => {
+    if (process.platform === "win32" || process.platform === "darwin") {
+      app.setLoginItemSettings({
+        openAtLogin: enable,
+        openAsHidden: false,
+      });
+      return true;
+    }
+    return false;
+  });
+
   ipcMain.handle("getScreenSources", async () => {
     const sources = await desktopCapturer.getSources({
       types: ["screen", "window"],
@@ -278,83 +277,48 @@ export function createMainWindow() {
     async (webContents, permission, callback) => {
       const allowed = [
         "media",
-        "audio-capture",
-        "video-capture",
-        "display-capture",
+        "mediaKeySystem",
         "notifications",
+        "display-capture",
       ];
-      if (!allowed.includes(permission)) {
-        return callback(false);
+      if (allowed.includes(permission)) {
+        callback(true);
+        return;
       }
-
-      if (process.platform === "darwin") {
-        if (permission === "media" || permission === "audio-capture") {
-          try {
-            const status = systemPreferences.getMediaAccessStatus("microphone");
-            if (status === "not-determined") {
-              const granted = await systemPreferences.askForMediaAccess("microphone");
-              return callback(granted);
-            } else if (status === "denied" || status === "restricted") {
-              return callback(false);
-            }
-            return callback(true);
-          } catch (e) {
-            console.error("[macOS Permission Error - microphone]:", e);
-          }
-        }
-        if (permission === "video-capture") {
-          try {
-            const status = systemPreferences.getMediaAccessStatus("camera");
-            if (status === "not-determined") {
-              const granted = await systemPreferences.askForMediaAccess("camera");
-              return callback(granted);
-            } else if (status === "denied" || status === "restricted") {
-              return callback(false);
-            }
-            return callback(true);
-          } catch (e) {
-            console.error("[macOS Permission Error - camera]:", e);
-          }
-        }
-      }
-
-      callback(true);
-    },
+      callback(false);
+    }
   );
 
   session.defaultSession.setPermissionCheckHandler(
     (webContents, permission) => {
       const allowed = [
         "media",
-        "audio-capture",
-        "video-capture",
-        "display-capture",
+        "mediaKeySystem",
         "notifications",
+        "display-capture",
       ];
-      if (!allowed.includes(permission)) return false;
-      if (process.platform === "darwin") {
-        if (permission === "media" || permission === "audio-capture") {
-          const status = systemPreferences.getMediaAccessStatus("microphone");
-          if (status === "denied" || status === "restricted") return false;
-          return true;
-        }
+      return allowed.includes(permission);
+    }
+  );
+
+  // Set audio device handler to allow automatic device enumeration
+  session.defaultSession.setDevicePermissionHandler(
+    (details) => {
+      if (details.deviceType === "audioInput" || details.deviceType === "videoInput") {
+        return true;
       }
-      return true;
-    },
+      return false;
+    }
   );
 
   // Create display media request handler with screen/window picker
   session.defaultSession.setDisplayMediaRequestHandler(
     async (request, callback) => {
       try {
-        const isWin = process.platform === "win32";
-
         // Check if pre-selected via custom UI
         if (pendingScreenSource) {
           const src = pendingScreenSource;
-          const includeAudio = Boolean(
-            isWin && request.audioRequested && pendingScreenAudio,
-          );
+          const includeAudio = Boolean(pendingScreenAudio);
           pendingScreenSource = null;
           pendingScreenAudio = false;
 
@@ -375,7 +339,7 @@ export function createMainWindow() {
           return;
         }
 
-        const includeAudio = Boolean(isWin && request.audioRequested);
+        const includeAudio = Boolean(request.audioRequested);
 
         if (sources.length === 1) {
           includeAudio
@@ -384,103 +348,30 @@ export function createMainWindow() {
           return;
         }
 
-        let responded = false;
-        const respond = (source?: (typeof sources)[0]) => {
-          if (responded) return;
-          responded = true;
-          if (!source) {
-            callback({});
-          } else {
-            includeAudio
-              ? callback({ video: source, audio: "loopback" })
-              : callback({ video: source });
-          }
-        };
-
-        // Fallback screen selection menu
-        const menu = new Menu();
-        const screens = sources.filter((s) => s.id.startsWith("screen"));
-        const windows = sources.filter((s) => s.id.startsWith("window"));
-
-        if (screens.length > 0) {
-          menu.append(
-            new MenuItem({ label: "── Экраны ──", enabled: false }),
-          );
-          for (const s of screens) {
-            menu.append(
-              new MenuItem({
-                label: `🖥️  ${s.name}`,
-                click: () => respond(s),
-              }),
-            );
-          }
-        }
-
-        if (windows.length > 0) {
-          if (screens.length > 0) menu.append(new MenuItem({ type: "separator" }));
-          menu.append(
-            new MenuItem({ label: "── Окна ──", enabled: false }),
-          );
-          for (const s of windows) {
-            const title =
-              s.name.length > 45 ? s.name.substring(0, 42) + "..." : s.name;
-            menu.append(
-              new MenuItem({
-                label: `🪟  ${title}`,
-                icon: s.appIcon
-                  ? s.appIcon.resize({ width: 16, height: 16 })
-                  : undefined,
-                click: () => respond(s),
-              }),
-            );
-          }
-        }
-
-        menu.append(new MenuItem({ type: "separator" }));
-        menu.append(
-          new MenuItem({
-            label: "Отмена",
-            click: () => respond(),
-          }),
-        );
-
-        menu.on("menu-will-close", () => {
-          setTimeout(() => {
-            if (!responded) {
-              respond();
-            }
-          }, 200);
-        });
-
-        menu.popup({ window: mainWindow });
+        // Default to first screen if multiple available
+        const primarySource = sources.find((s) => s.id.startsWith("screen:0")) || sources[0];
+        includeAudio
+          ? callback({ video: primarySource, audio: "loopback" })
+          : callback({ video: primarySource });
       } catch (err) {
-        console.error("setDisplayMediaRequestHandler error:", err);
+        console.error("Error in displayMediaRequestHandler:", err);
         callback({});
       }
-    },
+    }
   );
 
-  // push world events to the window
-  ipcMain.on("minimise", () => mainWindow.minimize());
-  ipcMain.on("maximise", () =>
-    mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
-  );
-  ipcMain.on("close", () => mainWindow.close());
-  ipcMain.on("relaunch", () => {
-    app.relaunch();
-    quitApp();
+  // Wait until app is ready before showing
+  win.once("ready-to-show", () => {
+    win?.show();
+    win?.focus();
   });
-}
 
-/**
- * Quit the entire app
- */
-export function quitApp() {
-  shouldQuit = true;
-  mainWindow.close();
-}
+  // Load the web app
+  if (app.isPackaged) {
+    win.loadURL("https://cord.lie2srvv.com");
+  } else {
+    win.loadURL("https://cord.lie2srvv.com");
+  }
 
-// Ensure global app quit works properly
-app.on("before-quit", () => {
-  shouldQuit = true;
-});
+  return win;
+}

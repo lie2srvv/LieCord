@@ -66,7 +66,6 @@ export default function UserBadges({ badges, uid }: Props) {
                             style={{
                                 cursor: "pointer",
                             }}
-
                         />
                     </Tooltip>
                 ) : (
@@ -112,7 +111,6 @@ export default function UserBadges({ badges, uid }: Props) {
                             style={{
                                 cursor: "pointer",
                             }}
-
                         />
                     </Tooltip>
                 ) : (

@@ -54,7 +54,7 @@ export default function Invite() {
                         <div
                             className={styles.invite}
                             style={{
-                                backgroundColor: 'var(--primary-background)',
+                                backgroundColor: "var(--primary-background)",
                                 width: "100%",
                                 height: "100%",
                             }}>

@@ -121,14 +121,21 @@ export default observer(
                     height="32"
                     className="icon"
                     mask={mask ?? (status ? "url(#user)" : undefined)}>
-                    {url && (url.includes(".mp4") || url.includes(".webm") || url.includes("video")) ? (
+                    {url &&
+                    (url.includes(".mp4") ||
+                        url.includes(".webm") ||
+                        url.includes("video")) ? (
                         <video
                             src={url}
                             autoPlay
                             loop
                             muted
                             playsInline
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                            }}
                         />
                     ) : (
                         <img src={url} draggable={false} loading="lazy" />

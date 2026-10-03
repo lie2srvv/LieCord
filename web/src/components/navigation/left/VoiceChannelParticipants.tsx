@@ -1,8 +1,10 @@
 import { Desktop } from "@styled-icons/boxicons-regular";
 import { observer } from "mobx-react-lite";
 import styled, { css } from "styled-components/macro";
-import { useClient } from "../../../controllers/client/ClientController";
+
 import { voiceState } from "../../../lib/vortex/VoiceState";
+
+import { useClient } from "../../../controllers/client/ClientController";
 import UserIcon from "../../common/user/UserIcon";
 
 const List = styled.div`
@@ -65,47 +67,49 @@ interface Props {
     serverId: string;
 }
 
-export const VoiceChannelParticipants = observer(({ channelId, serverId }: Props) => {
-    const client = useClient();
-    const participants = voiceState.getChannelParticipants(channelId);
+export const VoiceChannelParticipants = observer(
+    ({ channelId, serverId }: Props) => {
+        const client = useClient();
+        const participants = voiceState.getChannelParticipants(channelId);
 
-    if (!participants || participants.length === 0) return null;
+        if (!participants || participants.length === 0) return null;
 
-    const server = client.servers.get(serverId);
+        const server = client.servers.get(serverId);
 
-    return (
-        <List>
-            {participants.map((p) => {
-                const user = client.users.get(p.id);
-                const member = server?.getMember(p.id);
-                const name =
-                    member?.nickname ??
-                    user?.display_name ??
-                    user?.username ??
-                    "Пользователь";
-                const speaking = voiceState.isSpeaking(p.id);
+        return (
+            <List>
+                {participants.map((p) => {
+                    const user = client.users.get(p.id);
+                    const member = server?.getMember(p.id);
+                    const name =
+                        member?.nickname ??
+                        user?.display_name ??
+                        user?.username ??
+                        "Пользователь";
+                    const speaking = voiceState.isSpeaking(p.id);
 
-                return (
-                    <ParticipantRow
-                        key={p.id}
-                        onClick={async () => {
-                            const ch = client.channels.get(channelId);
-                            if (ch && voiceState.roomId !== channelId) {
-                                await voiceState.loadVoice();
-                                voiceState.disconnect();
-                                voiceState.connect(ch);
-                            }
-                        }}>
-                        <AvatarRing speaking={speaking}>
-                            <UserIcon target={user} size={20} />
-                        </AvatarRing>
-                        <span className="name">{name}</span>
-                        {p.screensharing && (
-                            <Desktop size={14} className="badge-icon" />
-                        )}
-                    </ParticipantRow>
-                );
-            })}
-        </List>
-    );
-});
+                    return (
+                        <ParticipantRow
+                            key={p.id}
+                            onClick={async () => {
+                                const ch = client.channels.get(channelId);
+                                if (ch && voiceState.roomId !== channelId) {
+                                    await voiceState.loadVoice();
+                                    voiceState.disconnect();
+                                    voiceState.connect(ch);
+                                }
+                            }}>
+                            <AvatarRing speaking={speaking}>
+                                <UserIcon target={user} size={20} />
+                            </AvatarRing>
+                            <span className="name">{name}</span>
+                            {p.screensharing && (
+                                <Desktop size={14} className="badge-icon" />
+                            )}
+                        </ParticipantRow>
+                    );
+                })}
+            </List>
+        );
+    },
+);

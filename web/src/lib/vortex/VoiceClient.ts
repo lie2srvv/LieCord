@@ -190,7 +190,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
     // Screen share subscriptions and snapshots for 0 KB/s inactive preview
     public videoPublications: Map<string, RemoteTrackPublication> = new Map();
-    public screenAudioPublications: Map<string, RemoteTrackPublication> = new Map();
+    public screenAudioPublications: Map<string, RemoteTrackPublication> =
+        new Map();
+    public screenAudioTracks: Map<string, RemoteTrack> = new Map();
     public screenThumbnails: Map<string, string> = new Map();
     public watchingUserId: string | null = null;
 
@@ -230,6 +232,23 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 err,
             );
         }
+    }
+
+    /**
+     * Attaches and plays screen share audio through a dedicated audio element
+     * with autoplay error catching and deaf state handling.
+     */
+    public attachScreenAudio(uid: string, track: RemoteTrack) {
+        document
+            .querySelectorAll(`audio[id^='audio-screen-${uid}-']`)
+            .forEach((el) => el.remove());
+        const el = track.attach() as HTMLAudioElement;
+        el.id = `audio-screen-${uid}-${track.sid}`;
+        el.muted = this.isDeaf;
+        document.body.appendChild(el);
+        el.play().catch((e) =>
+            console.warn("[VoiceClient] Autoplay prevented for screen audio:", e),
+        );
     }
 
     /**
@@ -282,13 +301,20 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         const canvas = document.createElement("canvas");
                         const targetWidth = Math.min(video.videoWidth, 480);
                         const targetHeight = Math.round(
-                            (targetWidth / video.videoWidth) * video.videoHeight,
+                            (targetWidth / video.videoWidth) *
+                                video.videoHeight,
                         );
                         canvas.width = targetWidth;
                         canvas.height = targetHeight;
                         const ctx = canvas.getContext("2d");
                         if (ctx) {
-                            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+                            ctx.drawImage(
+                                video,
+                                0,
+                                0,
+                                targetWidth,
+                                targetHeight,
+                            );
                             const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
                             this.screenThumbnails.set(uid, dataUrl);
                             this.emit("screenThumbnailUpdated", uid, dataUrl);
@@ -324,7 +350,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         const prevWatching = this.watchingUserId;
         this.watchingUserId = userId;
 
-        // Unsubscribe from previously watched stream
+        // Unlock browser WebRTC audio context on user interaction
+        if (this.room && typeof (this.room as any).startAudio === "function") {
+            (this.room as any).startAudio().catch(() => {});
+        }
+
+        // Unsubscribe from previously watched stream (only 1 active stream allowed at a time)
         if (prevWatching && prevWatching !== userId && this.room) {
             const pub = this.videoPublications.get(prevWatching);
             if (pub && pub.isSubscribed) {
@@ -338,6 +369,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     audioPub.setSubscribed(false);
                 } catch (_) {}
             }
+            this.screenAudioTracks.delete(prevWatching);
             document
                 .querySelectorAll(`audio[id^='audio-screen-${prevWatching}-']`)
                 .forEach((el) => {
@@ -366,11 +398,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         audioPub.setSubscribed(true);
                     } catch (_) {}
                 }
-                if (audioPub.track) {
-                    const el = audioPub.track.attach();
-                    el.id = `audio-screen-${userId}-${audioPub.track.sid}`;
-                    el.muted = this.isDeaf;
-                    document.body.appendChild(el);
+                const track =
+                    audioPub.track || this.screenAudioTracks.get(userId);
+                if (track) {
+                    this.attachScreenAudio(userId, track);
                 }
             }
         }
@@ -406,6 +437,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.videoTracks.clear();
         this.videoPublications.clear();
         this.screenAudioPublications.clear();
+        this.screenAudioTracks.clear();
         this.screenThumbnails.clear();
         this.watchingUserId = null;
 
@@ -440,6 +472,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             this.videoTracks.delete(uid);
             this.videoPublications.delete(uid);
             this.screenAudioPublications.delete(uid);
+            this.screenAudioTracks.delete(uid);
             this.screenThumbnails.delete(uid);
             if (this.watchingUserId === uid) {
                 this.watchingUserId = null;
@@ -476,7 +509,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     u.screen = true;
                     this.participants.set(uid, u);
                     this.emit("userStartProduce", uid, "screen");
-                } else if (publication.source === Track.Source.ScreenShareAudio) {
+                } else if (
+                    publication.source === Track.Source.ScreenShareAudio
+                ) {
                     this.screenAudioPublications.set(uid, publication);
                 }
             },
@@ -501,8 +536,11 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         this.watchingUserId = null;
                     }
                     this.emit("userStopProduce", uid, "screen");
-                } else if (publication.source === Track.Source.ScreenShareAudio) {
+                } else if (
+                    publication.source === Track.Source.ScreenShareAudio
+                ) {
                     this.screenAudioPublications.delete(uid);
+                    this.screenAudioTracks.delete(uid);
                     document
                         .querySelectorAll(`audio[id^='audio-screen-${uid}-']`)
                         .forEach((el) => {
@@ -525,23 +563,22 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 if (track.kind === Track.Kind.Audio) {
                     if (publication.source === Track.Source.ScreenShareAudio) {
                         this.screenAudioPublications.set(uid, publication);
-                        if (this.watchingUserId !== uid) {
+                        this.screenAudioTracks.set(uid, track);
+                        if (this.watchingUserId === uid) {
+                            this.attachScreenAudio(uid, track);
+                        } else {
                             try {
                                 publication.setSubscribed(false);
                             } catch (_) {}
-                        } else {
-                            const el = track.attach();
-                            el.id = `audio-screen-${uid}-${track.sid}`;
-                            el.muted = this.isDeaf;
-                            document.body.appendChild(el);
                         }
                     } else {
-                        const el = track.attach();
+                        const el = track.attach() as HTMLAudioElement;
                         el.id = `audio-${uid}-${track.sid}`;
                         if (this.isDeaf) {
                             el.muted = true;
                         }
                         document.body.appendChild(el);
+                        el.play().catch(() => {});
 
                         u.audio = true;
                         this.participants.set(uid, u);
@@ -570,11 +607,13 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 participant: RemoteParticipant,
             ) => {
                 const uid = participant.identity;
-                const u = this.participants.get(uid);
 
                 if (track.kind === Track.Kind.Audio) {
                     track.detach().forEach((el) => el.remove());
-                    if (publication.source !== Track.Source.ScreenShareAudio) {
+                    if (publication.source === Track.Source.ScreenShareAudio) {
+                        this.screenAudioTracks.delete(uid);
+                    } else {
+                        const u = this.participants.get(uid);
                         if (u) {
                             u.audio = false;
                         }
@@ -616,7 +655,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             if (publication.source === Track.Source.ScreenShare) {
                 this.screenProducer = undefined;
                 if (this.room) {
-                    this.videoTracks.delete(this.room.localParticipant.identity);
+                    this.videoTracks.delete(
+                        this.room.localParticipant.identity,
+                    );
                 }
                 this.emit("stopProduce", "screen");
             } else if (publication.source === Track.Source.Microphone) {
@@ -630,7 +671,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         // Auto-enable microphone if user is not deafened and not muted
         if (!this.isDeaf && !this.isMuted) {
             try {
-                if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+                if (
+                    typeof window !== "undefined" &&
+                    (window as any).native?.requestMicrophoneAccess
+                ) {
                     await (window as any).native.requestMicrophoneAccess();
                 }
                 const pub = await room.localParticipant.setMicrophoneEnabled(
@@ -658,15 +702,18 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
             el.remove();
         });
-        document.querySelectorAll("video[id^='video-screen-']").forEach((el) => {
-            el.remove();
-        });
+        document
+            .querySelectorAll("video[id^='video-screen-']")
+            .forEach((el) => {
+                el.remove();
+            });
         this.roomId = undefined;
         this.participants.clear();
         this.activeSpeakers.clear();
         this.videoTracks.clear();
         this.videoPublications.clear();
         this.screenAudioPublications.clear();
+        this.screenAudioTracks.clear();
         this.screenThumbnails.clear();
         this.watchingUserId = null;
         this.audioProducer = undefined;
@@ -697,19 +744,26 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         if (!this.room) return;
         if (type === "audio") {
             try {
-                if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+                if (
+                    typeof window !== "undefined" &&
+                    (window as any).native?.requestMicrophoneAccess
+                ) {
                     await (window as any).native.requestMicrophoneAccess();
                 }
                 this.isMuted = false;
-                const pub = await this.room.localParticipant.setMicrophoneEnabled(
-                    true,
-                    DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
-                );
+                const pub =
+                    await this.room.localParticipant.setMicrophoneEnabled(
+                        true,
+                        DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+                    );
                 this.audioProducer = pub;
                 await this.applyAudioEnhancements(pub);
                 this.emit("startProduce", "audio");
                 if (typeof window !== "undefined") {
-                    window.localStorage.setItem("audioPermissionGranted", "true");
+                    window.localStorage.setItem(
+                        "audioPermissionGranted",
+                        "true",
+                    );
                 }
             } catch (err) {
                 console.error("Failed to enable microphone:", err);
@@ -727,7 +781,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 };
 
                 // Compute optimal encoding bitrate based on target resolution and framerate
-                const maxDim = Math.max(captureResolution.width, captureResolution.height);
+                const maxDim = Math.max(
+                    captureResolution.width,
+                    captureResolution.height,
+                );
                 const fps = captureResolution.frameRate || 30;
                 let maxBitrate = 4_000_000;
                 if (maxDim <= 854) {
@@ -749,31 +806,33 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         maxBitrate,
                         maxFramerate: fps,
                     },
-                    degradationPreference: 'maintain-resolution',
+                    degradationPreference: "maintain-resolution",
                     simulcast: false, // Ensure full original stream is transmitted directly
                 };
 
                 let pub;
                 try {
                     // Try with audio first if requested
-                    pub = await this.room.localParticipant.setScreenShareEnabled(
-                        true,
-                        captureOpts,
-                        publishOpts,
-                    );
+                    pub =
+                        await this.room.localParticipant.setScreenShareEnabled(
+                            true,
+                            captureOpts,
+                            publishOpts,
+                        );
                 } catch (audioErr) {
                     console.warn(
                         "Screen share with audio failed, falling back to video only:",
                         audioErr,
                     );
-                    pub = await this.room.localParticipant.setScreenShareEnabled(
-                        true,
-                        {
-                            audio: false,
-                            resolution: captureResolution,
-                        },
-                        publishOpts,
-                    );
+                    pub =
+                        await this.room.localParticipant.setScreenShareEnabled(
+                            true,
+                            {
+                                audio: false,
+                                resolution: captureResolution,
+                            },
+                            publishOpts,
+                        );
                 }
 
                 if (pub) {
@@ -785,11 +844,15 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         );
                     }
                     // Apply sender encoding parameters directly to guarantee bitrate & fps
-                    const sender = (pub as any).track?.sender || (pub as any).sender;
+                    const sender =
+                        (pub as any).track?.sender || (pub as any).sender;
                     if (sender && typeof sender.getParameters === "function") {
                         try {
                             const params = sender.getParameters();
-                            if (params.encodings && params.encodings.length > 0) {
+                            if (
+                                params.encodings &&
+                                params.encodings.length > 0
+                            ) {
                                 params.encodings[0].maxBitrate = maxBitrate;
                                 params.encodings[0].maxFramerate = fps;
                                 await sender.setParameters(params);
@@ -801,7 +864,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     this.emit("startProduce", "screen");
                 }
             } catch (err) {
-                console.error("Failed to start screen share or cancelled by user:", err);
+                console.error(
+                    "Failed to start screen share or cancelled by user:",
+                    err,
+                );
                 this.screenProducer = undefined;
             }
         }

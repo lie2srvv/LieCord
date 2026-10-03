@@ -11,8 +11,9 @@ import { observer } from "mobx-react-lite";
 import { Link } from "react-router-dom";
 import styled from "styled-components/macro";
 
-import { useClient } from "../../../controllers/client/ClientController";
 import { voiceState } from "../../../lib/vortex/VoiceState";
+
+import { useClient } from "../../../controllers/client/ClientController";
 import UserIcon from "../../common/user/UserIcon";
 
 const PanelContainer = styled.div`
@@ -154,7 +155,7 @@ export const StatusPanel = observer(() => {
         if (activeChannel.channel_type === "DirectMessage") {
             const recipient = activeChannel.recipient;
             channelDisplayName = recipient
-                ? (recipient.display_name ?? recipient.username)
+                ? recipient.display_name ?? recipient.username
                 : "Личный звонок";
         } else if (activeChannel.channel_type === "Group") {
             channelDisplayName = activeChannel.name || "Групповой звонок";
@@ -183,7 +184,9 @@ export const StatusPanel = observer(() => {
                         <div className="status-title">
                             <PhoneCall size={14} /> Подключено к голосу
                         </div>
-                        <div className="channel-name" title={channelDisplayName}>
+                        <div
+                            className="channel-name"
+                            title={channelDisplayName}>
                             {channelDisplayName}
                         </div>
                     </div>
@@ -197,12 +200,7 @@ export const StatusPanel = observer(() => {
             )}
 
             <UserBar>
-                <UserIcon
-                    size={36}
-                    target={user}
-                    status
-                    animate
-                />
+                <UserIcon size={36} target={user} status animate />
                 <div className="user-info">
                     <span className="username">
                         {user.display_name ?? user.username}
@@ -211,7 +209,11 @@ export const StatusPanel = observer(() => {
                 </div>
                 <div className="action-buttons">
                     <ActionButton
-                        title={isMicMuted ? "Включить микрофон" : "Отключить микрофон"}
+                        title={
+                            isMicMuted
+                                ? "Включить микрофон"
+                                : "Отключить микрофон"
+                        }
                         danger={isMicMuted}
                         onClick={toggleMic}>
                         {isMicMuted ? (

@@ -1,11 +1,14 @@
 import { PhoneCall } from "@styled-icons/boxicons-solid";
 import { VolumeFull } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
-import styled, { keyframes } from "styled-components/macro";
-import { Button } from "@revoltchat/ui";
 import { Channel } from "revolt.js";
-import { useClient } from "../../../controllers/client/ClientController";
+import styled, { keyframes } from "styled-components/macro";
+
+import { Button } from "@revoltchat/ui";
+
 import { voiceState } from "../../../lib/vortex/VoiceState";
+
+import { useClient } from "../../../controllers/client/ClientController";
 import UserIcon from "../user/UserIcon";
 
 const pulseGreen = keyframes`
@@ -289,5 +292,5 @@ export const VoiceChannelLobby = observer(
                 </Button>
             </LobbyBase>
         );
-    }
+    },
 );

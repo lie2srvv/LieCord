@@ -1,4 +1,6 @@
 import {
+    Crop,
+    RotateRight,
     Desktop,
     Fullscreen,
     ExitFullscreen,
@@ -105,7 +107,12 @@ const ScreenShareArea = styled.div`
     margin-bottom: 12px;
 `;
 
-const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
+const VideoBox = styled.div<{
+    expanded?: boolean;
+    isFullscreen?: boolean;
+    isCropped?: boolean;
+    rotation?: number;
+}>`
     position: ${(props) =>
         props.isFullscreen ? "fixed !important" : "relative"};
     top: ${(props) => (props.isFullscreen ? "0 !important" : "auto")};
@@ -145,6 +152,7 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
     z-index: ${(props) => (props.isFullscreen ? "999999 !important" : "5")};
     user-select: none;
     transition: max-width 0.2s ease, height 0.2s ease;
+    cursor: pointer;
 
     &:fullscreen {
         position: fixed !important;
@@ -164,7 +172,10 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
         height: 100%;
         max-width: 100%;
         max-height: 100%;
-        object-fit: contain;
+        object-fit: ${(props) => (props.isCropped ? "cover" : "contain")};
+        transform: ${(props) =>
+            props.rotation ? `rotate(${props.rotation}deg)` : "none"};
+        transition: transform 0.2s ease, object-fit 0.2s ease;
     }
 
     .video-label {
@@ -219,6 +230,12 @@ const VideoBox = styled.div<{ expanded?: boolean; isFullscreen?: boolean }>`
             transform: scale(0.95);
         }
 
+        &.active {
+            background: var(--accent, #5865f2);
+            border-color: #5865f2;
+            color: #ffffff;
+        }
+
         &.danger:hover {
             background: rgba(231, 76, 60, 0.8);
             border-color: #e74c3c;
@@ -240,7 +257,9 @@ const StreamTile = styled.div<{ active?: boolean }>`
                 ? "var(--accent, #5865f2)"
                 : "rgba(255, 255, 255, 0.12)"};
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.15s ease, border-color 0.15s ease,
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
         box-shadow 0.15s ease;
     display: flex;
     align-items: center;
@@ -411,7 +430,9 @@ const ContextMenuPopup = styled.div<{ x: number; y: number }>`
         gap: 8px;
         cursor: pointer;
         text-align: left;
-        transition: background 0.1s, color 0.1s;
+        transition:
+            background 0.1s,
+            color 0.1s;
 
         &:hover {
             background: var(--accent, #5865f2);
@@ -552,6 +573,8 @@ function VideoTrackView({
     const videoRef = useRef<HTMLVideoElement>(null);
     const boxRef = useRef<HTMLDivElement>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isCropped, setIsCropped] = useState(false);
+    const [rotation, setRotation] = useState(0);
 
     useEffect(() => {
         const el = videoRef.current;
@@ -623,6 +646,9 @@ function VideoTrackView({
             ref={boxRef}
             expanded={isExpanded}
             isFullscreen={isFullscreen}
+            isCropped={isCropped}
+            rotation={rotation}
+            onDblClick={toggleFullscreen}
             onContextMenu={onContextMenu}>
             {track ? (
                 <video
@@ -639,7 +665,12 @@ function VideoTrackView({
                     style={{
                         width: "100%",
                         height: "100%",
-                        objectFit: "contain",
+                        objectFit: isCropped ? "cover" : "contain",
+                        transform: rotation
+                            ? `rotate(${rotation}deg)`
+                            : "none",
+                        transition:
+                            "transform 0.2s ease, object-fit 0.2s ease",
                     }}
                 />
             ) : (
@@ -655,18 +686,46 @@ function VideoTrackView({
             <div className="video-label">{label}</div>
             <div className="video-controls">
                 <button
+                    className={`control-btn ${isCropped ? "active" : ""}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCropped((prev) => !prev);
+                    }}
+                    title={
+                        isCropped
+                            ? "Вписать полностью"
+                            : "Обрезать чёрные полосы (заполнить экран)"
+                    }>
+                    <Crop size={18} />
+                </button>
+                <button
                     className="control-btn"
-                    onClick={onToggleExpanded}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setRotation((prev) => (prev + 90) % 360);
+                    }}
+                    title="Повернуть на 90°">
+                    <RotateRight size={18} />
+                </button>
+                <button
+                    className="control-btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleExpanded();
+                    }}
                     title={isExpanded ? "Свернуть" : "Во весь чат"}>
                     {isExpanded ? <Collapse size={18} /> : <Expand size={18} />}
                 </button>
                 <button
                     className="control-btn"
-                    onClick={toggleFullscreen}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFullscreen();
+                    }}
                     title={
                         isFullscreen
                             ? "Выйти из полноэкранного режима"
-                            : "Полноэкранный режим"
+                            : "Полноэкранный режим (двойной клик)"
                     }>
                     {isFullscreen ? (
                         <ExitFullscreen size={18} />
@@ -676,9 +735,14 @@ function VideoTrackView({
                 </button>
                 <button
                     className="control-btn danger"
-                    onClick={onLeaveStream}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onLeaveStream();
+                    }}
                     title={
-                        isSelf ? "Остановить трансляцию" : "Покинуть трансляцию"
+                        isSelf
+                            ? "Остановить трансляцию"
+                            : "Покинуть трансляцию"
                     }>
                     {isSelf ? <PhoneOff size={18} /> : <LogOut size={18} />}
                 </button>
@@ -693,12 +757,16 @@ const ParticipantWrapper = styled.div<{ speaking?: boolean }>`
     align-items: center;
     position: relative;
     border-radius: 50%;
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    transition:
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
 
     ${(props) =>
         props.speaking &&
         css`
-            box-shadow: 0 0 0 3px #57f287, 0 0 12px rgba(87, 242, 135, 0.6);
+            box-shadow:
+                0 0 0 3px #57f287,
+                0 0 12px rgba(87, 242, 135, 0.6);
             transform: scale(1.03);
         `}
 `;
@@ -813,6 +881,14 @@ export default observer(({ id }: Props) => {
     };
 
     const handleWatchStream = (targetUserId: string) => {
+        if (watchedStreamUserId && watchedStreamUserId !== targetUserId) {
+            const videoEl = document.querySelector(
+                "#main-stream-video",
+            ) as HTMLVideoElement | null;
+            if (videoEl) {
+                captureLastFrame(videoEl, watchedStreamUserId);
+            }
+        }
         voiceState.setWatchingScreenUserId(targetUserId);
     };
 
@@ -899,8 +975,7 @@ export default observer(({ id }: Props) => {
                                       <UserIcon
                                           size={80}
                                           target={
-                                              user ??
-                                              (isSelf ? self : undefined)
+                                              user ?? (isSelf ? self : undefined)
                                           }
                                           status={false}
                                           voice={voiceStatus}
@@ -1043,7 +1118,6 @@ export default observer(({ id }: Props) => {
                                         setIsExpanded((prev) => !prev);
                                         setContextMenu(null);
                                     }}>
-                                    {" "}
                                     {isExpanded ? (
                                         <Collapse size={16} />
                                     ) : (

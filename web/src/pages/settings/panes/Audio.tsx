@@ -33,11 +33,15 @@ export function Audio() {
 
     const askOrGetPermission = async () => {
         try {
-            if (typeof window !== "undefined" && (window as any).native?.requestMicrophoneAccess) {
+            if (
+                typeof window !== "undefined" &&
+                (window as any).native?.requestMicrophoneAccess
+            ) {
                 await (window as any).native.requestMicrophoneAccess();
             }
-            const result =
-                await navigator.mediaDevices.getUserMedia(constraints);
+            const result = await navigator.mediaDevices.getUserMedia(
+                constraints,
+            );
 
             setMediaStream(result);
             setPermission("granted");
@@ -75,7 +79,8 @@ export function Audio() {
         const checkPermissionAndDevices = async () => {
             let isGranted =
                 typeof window !== "undefined" &&
-                window.localStorage.getItem("audioPermissionGranted") === "true";
+                window.localStorage.getItem("audioPermissionGranted") ===
+                    "true";
 
             if (navigator.permissions && navigator.permissions.query) {
                 try {
@@ -86,14 +91,20 @@ export function Audio() {
                         setPermission(queryRes.state);
                         if (queryRes.state === "granted") {
                             isGranted = true;
-                            window.localStorage.setItem("audioPermissionGranted", "true");
+                            window.localStorage.setItem(
+                                "audioPermissionGranted",
+                                "true",
+                            );
                         }
                     }
                     queryRes.onchange = () => {
                         if (isMounted) {
                             setPermission(queryRes.state);
                             if (queryRes.state === "granted") {
-                                window.localStorage.setItem("audioPermissionGranted", "true");
+                                window.localStorage.setItem(
+                                    "audioPermissionGranted",
+                                    "true",
+                                );
                             }
                         }
                     };
@@ -102,15 +113,28 @@ export function Audio() {
                 }
             }
 
-            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+            if (
+                navigator.mediaDevices &&
+                navigator.mediaDevices.enumerateDevices
+            ) {
                 try {
-                    const devs = await navigator.mediaDevices.enumerateDevices();
+                    const devs =
+                        await navigator.mediaDevices.enumerateDevices();
                     if (isMounted) {
                         setMediaDevices(devs);
-                        if (devs.some((d) => d.kind === "audioinput" && d.label.length > 0)) {
+                        if (
+                            devs.some(
+                                (d) =>
+                                    d.kind === "audioinput" &&
+                                    d.label.length > 0,
+                            )
+                        ) {
                             isGranted = true;
                             setPermission("granted");
-                            window.localStorage.setItem("audioPermissionGranted", "true");
+                            window.localStorage.setItem(
+                                "audioPermissionGranted",
+                                "true",
+                            );
                         }
                     }
                 } catch (err) {
@@ -132,20 +156,35 @@ export function Audio() {
                 navigator.mediaDevices.enumerateDevices().then((devs) => {
                     if (isMounted) {
                         setMediaDevices(devs);
-                        if (devs.some((d) => d.kind === "audioinput" && d.label.length > 0)) {
+                        if (
+                            devs.some(
+                                (d) =>
+                                    d.kind === "audioinput" &&
+                                    d.label.length > 0,
+                            )
+                        ) {
                             setPermission("granted");
-                            window.localStorage.setItem("audioPermissionGranted", "true");
+                            window.localStorage.setItem(
+                                "audioPermissionGranted",
+                                "true",
+                            );
                         }
                     }
                 });
             }
         };
 
-        navigator.mediaDevices?.addEventListener("devicechange", handleDeviceChange);
+        navigator.mediaDevices?.addEventListener(
+            "devicechange",
+            handleDeviceChange,
+        );
 
         return () => {
             isMounted = false;
-            navigator.mediaDevices?.removeEventListener("devicechange", handleDeviceChange);
+            navigator.mediaDevices?.removeEventListener(
+                "devicechange",
+                handleDeviceChange,
+            );
         };
     }, []);
 

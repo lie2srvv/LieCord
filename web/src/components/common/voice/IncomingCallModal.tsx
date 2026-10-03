@@ -1,8 +1,10 @@
 import { PhoneCall, PhoneOff } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
 import styled, { keyframes } from "styled-components/macro";
-import { useClient } from "../../../controllers/client/ClientController";
+
 import { voiceState } from "../../../lib/vortex/VoiceState";
+
+import { useClient } from "../../../controllers/client/ClientController";
 import UserIcon from "../user/UserIcon";
 
 const pulseAnimation = keyframes`
@@ -30,7 +32,8 @@ const RingWrapper = styled.div`
     backdrop-filter: blur(12px);
     border: 1px solid rgba(87, 242, 135, 0.35);
     border-radius: 12px;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(87, 242, 135, 0.2);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65),
+        0 0 20px rgba(87, 242, 135, 0.2);
     min-width: 320px;
     animation: fadeIn 0.25s ease-out;
 

@@ -41,9 +41,7 @@ export default observer(() => {
                                     href={action.href}
                                     target="_blank"
                                     rel="noreferrer">
-                                    <div className="button">
-                                        {action.text}
-                                    </div>{" "}
+                                    <div className="button">{action.text}</div>{" "}
                                 </a>
                             ) : null,
                         )}
@@ -97,7 +95,9 @@ export default observer(() => {
                     {/*</div>*/}
                     <div className={styles.bottom}>
                         <div className={styles.links}>
-                            <span style={{ color: 'var(--text-muted)' }}>LieCord</span>
+                            <span style={{ color: "var(--text-muted)" }}>
+                                LieCord
+                            </span>
                         </div>
                     </div>
                 </div>

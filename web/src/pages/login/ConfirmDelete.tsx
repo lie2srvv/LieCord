@@ -31,10 +31,8 @@ export default function ConfirmDelete() {
                         Your account will be deleted in 7 days.
                         <br />
                         You may contact{" "}
-                        <a href="mailto:admin@cord.lie2srvv.com">
-                            support
-                        </a>{" "}
-                        to cancel the request if you wish.
+                        <a href="mailto:admin@cord.lie2srvv.com">support</a> to
+                        cancel the request if you wish.
                     </>
                 ) : (
                     "Contacting the server."
