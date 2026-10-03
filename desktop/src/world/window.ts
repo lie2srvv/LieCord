@@ -63,4 +63,9 @@ contextBridge.exposeInMainWorld("native", {
 
   requestMicrophoneAccess: () =>
     ipcRenderer.invoke("requestMicrophoneAccess") as Promise<boolean>,
+
+  startLinuxScreenAudio: () =>
+    ipcRenderer.invoke("startLinuxScreenAudio") as Promise<boolean>,
+  stopLinuxScreenAudio: () =>
+    ipcRenderer.invoke("stopLinuxScreenAudio") as Promise<boolean>,
 });

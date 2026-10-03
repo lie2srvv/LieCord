@@ -78,6 +78,7 @@ object VoiceCallManager {
         watchingUserId = userId
         updateScreenShareSubscriptions()
         val currentRoom = room ?: return
+        applyDeafenState(currentRoom)
         val audioHandler = currentRoom.audioSwitchHandler
         if (audioHandler != null) {
             val available = audioHandler.availableAudioDevices
@@ -92,6 +93,7 @@ object VoiceCallManager {
     fun stopWatchingStream() {
         watchingUserId = null
         updateScreenShareSubscriptions()
+        room?.let { applyDeafenState(it) }
     }
 
     fun updateScreenShareSubscriptions() {
@@ -105,12 +107,9 @@ object VoiceCallManager {
             }
             participant.audioTrackPublications.forEach { (pub, track) ->
                 if (pub.source == Track.Source.SCREEN_SHARE_AUDIO) {
-                    (pub as? RemoteTrackPublication)?.setSubscribed(isTarget)
-                    if (isTarget && !isDeafened) {
-                        (track as? RemoteAudioTrack)?.setVolume(1.0)
-                    } else if (!isTarget) {
-                        (track as? RemoteAudioTrack)?.setVolume(0.0)
-                    }
+                    (pub as? RemoteTrackPublication)?.setSubscribed(true)
+                    val vol = if (isTarget && !isDeafened) 1.0 else 0.0
+                    (track as? RemoteAudioTrack)?.setVolume(vol)
                 }
             }
         }
@@ -242,11 +241,12 @@ object VoiceCallManager {
             participant.audioTrackPublications.forEach { (pub, track) ->
                 val isScreenAudio = pub.source == Track.Source.SCREEN_SHARE_AUDIO
                 val isWatchingScreen = participant.identity?.value == watchingUserId
-                if (isScreenAudio && !isWatchingScreen) {
-                    (track as? RemoteAudioTrack)?.setVolume(0.0)
-                } else {
-                    (track as? RemoteAudioTrack)?.setVolume(if (isDeafened) 0.0 else 1.0)
+                val volume = when {
+                    isDeafened -> 0.0
+                    isScreenAudio -> if (isWatchingScreen) 1.0 else 0.0
+                    else -> 1.0
                 }
+                (track as? RemoteAudioTrack)?.setVolume(volume)
             }
         }
     }
@@ -281,15 +281,16 @@ object VoiceCallManager {
             when (event) {
                 is RoomEvent.TrackSubscribed -> {
                     applyDeafenState(room)
-                    if (event.publication.source == Track.Source.SCREEN_SHARE ||
-                        event.publication.source == Track.Source.SCREEN_SHARE_AUDIO
-                    ) {
+                    if (event.publication.source == Track.Source.SCREEN_SHARE) {
                         val shouldSubscribe = event.participant.identity?.value == watchingUserId
                         if (!shouldSubscribe) {
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(false)
-                        } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO && !isDeafened) {
-                            (event.track as? RemoteAudioTrack)?.setVolume(1.0)
                         }
+                    } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                        (event.publication as? RemoteTrackPublication)?.setSubscribed(true)
+                        val isWatching = event.participant.identity?.value == watchingUserId
+                        val vol = if (isWatching && !isDeafened) 1.0 else 0.0
+                        (event.track as? RemoteAudioTrack)?.setVolume(vol)
                     }
                 }
 
@@ -308,8 +309,7 @@ object VoiceCallManager {
                             val shouldSubscribe = event.participant.identity?.value == watchingUserId
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(shouldSubscribe)
                         } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO) {
-                            val shouldSubscribe = event.participant.identity?.value == watchingUserId
-                            (event.publication as? RemoteTrackPublication)?.setSubscribed(shouldSubscribe)
+                            (event.publication as? RemoteTrackPublication)?.setSubscribed(true)
                         }
                     }
                 }

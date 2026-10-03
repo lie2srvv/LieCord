@@ -245,11 +245,15 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             .forEach((el) => el.remove());
         const el = track.attach() as HTMLAudioElement;
         el.id = `audio-screen-${uid}-${track.sid}`;
-        el.muted = this.isDeaf;
+        const isWatching = this.watchingUserId === uid;
+        el.muted = !isWatching || this.isDeaf;
+        el.volume = isWatching && !this.isDeaf ? 1.0 : 0.0;
         document.body.appendChild(el);
-        el.play().catch((e) =>
-            console.warn("[VoiceClient] Autoplay prevented for screen audio:", e),
-        );
+        if (isWatching && !this.isDeaf) {
+            el.play().catch((e) =>
+                console.warn("[VoiceClient] Autoplay prevented for screen audio:", e),
+            );
+        }
     }
 
     /**
@@ -356,7 +360,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             (this.room as any).startAudio().catch(() => {});
         }
 
-        // Unsubscribe from previously watched stream (only 1 active stream allowed at a time)
+        // Unsubscribe video and mute audio from previously watched stream
         if (prevWatching && prevWatching !== userId && this.room) {
             const pub = this.videoPublications.get(prevWatching);
             if (pub && pub.isSubscribed) {
@@ -364,17 +368,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     pub.setSubscribed(false);
                 } catch (_) {}
             }
-            const audioPub = this.screenAudioPublications.get(prevWatching);
-            if (audioPub && audioPub.isSubscribed) {
-                try {
-                    audioPub.setSubscribed(false);
-                } catch (_) {}
-            }
-            this.screenAudioTracks.delete(prevWatching);
             document
                 .querySelectorAll(`audio[id^='audio-screen-${prevWatching}-']`)
                 .forEach((el) => {
-                    el.remove();
+                    const audioEl = el as HTMLAudioElement;
+                    audioEl.muted = true;
+                    audioEl.volume = 0;
                 });
         }
 
@@ -392,17 +391,23 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     this.emit("userStartProduce", userId, "screen");
                 }
             }
-            const audioPub = this.screenAudioPublications.get(userId);
-            if (audioPub) {
-                if (!audioPub.isSubscribed) {
-                    try {
-                        audioPub.setSubscribed(true);
-                    } catch (_) {}
-                }
-                const track =
-                    audioPub.track || this.screenAudioTracks.get(userId);
-                if (track) {
-                    this.attachScreenAudio(userId, track);
+
+            // Unmute and play screen share audio for newly watched user
+            document
+                .querySelectorAll(`audio[id^='audio-screen-${userId}-']`)
+                .forEach((el) => {
+                    const audioEl = el as HTMLAudioElement;
+                    audioEl.muted = this.isDeaf;
+                    audioEl.volume = this.isDeaf ? 0 : 1.0;
+                    audioEl.play().catch(() => {});
+                });
+
+            // Ensure attached if track was already present
+            const audioTrack = this.screenAudioTracks.get(userId);
+            if (audioTrack) {
+                const existing = document.querySelector(`audio[id^='audio-screen-${userId}-']`);
+                if (!existing) {
+                    this.attachScreenAudio(userId, audioTrack);
                 }
             }
         }
@@ -570,13 +575,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     if (publication.source === Track.Source.ScreenShareAudio) {
                         this.screenAudioPublications.set(uid, publication);
                         this.screenAudioTracks.set(uid, track);
-                        if (this.watchingUserId === uid) {
-                            this.attachScreenAudio(uid, track);
-                        } else {
-                            try {
-                                publication.setSubscribed(false);
-                            } catch (_) {}
-                        }
+                        this.attachScreenAudio(uid, track);
                     } else {
                         const el = track.attach() as HTMLAudioElement;
                         el.id = `audio-${uid}-${track.sid}`;
@@ -682,6 +681,35 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         await room.connect(url, token);
 
+        // Index existing remote participants
+        room.remoteParticipants.forEach((participant) => {
+            const uid = participant.identity;
+            participant.videoTrackPublications.forEach((pub) => {
+                if (pub.source === Track.Source.ScreenShare) {
+                    this.videoPublications.set(uid, pub);
+                    const u = this.participants.get(uid) || {};
+                    u.screen = true;
+                    this.participants.set(uid, u);
+                    if (this.watchingUserId === uid && pub.track) {
+                        this.videoTracks.set(uid, pub.track as any);
+                    } else if (pub.isSubscribed && this.watchingUserId !== uid) {
+                        try {
+                            pub.setSubscribed(false);
+                        } catch (_) {}
+                    }
+                }
+            });
+            participant.audioTrackPublications.forEach((pub) => {
+                if (pub.source === Track.Source.ScreenShareAudio) {
+                    this.screenAudioPublications.set(uid, pub);
+                    if (pub.track) {
+                        this.screenAudioTracks.set(uid, pub.track as any);
+                        this.attachScreenAudio(uid, pub.track as any);
+                    }
+                }
+            });
+        });
+
         // Auto-enable microphone if user is not deafened and not muted
         if (!this.isDeaf && !this.isMuted) {
             try {
@@ -749,8 +777,17 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         }
         document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
             const audioEl = el as HTMLAudioElement;
-            audioEl.muted = deaf;
-            if (!deaf) {
+            const isScreen = audioEl.id.startsWith("audio-screen-");
+            if (isScreen) {
+                const parts = audioEl.id.split("-");
+                const uid = parts[2];
+                const isWatching = this.watchingUserId === uid;
+                audioEl.muted = deaf || !isWatching;
+                audioEl.volume = deaf || !isWatching ? 0 : 1.0;
+            } else {
+                audioEl.muted = deaf;
+            }
+            if (!deaf && (!isScreen || audioEl.volume > 0)) {
                 audioEl.play().catch(() => {});
             }
         });
@@ -876,32 +913,39 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         navigator.mediaDevices
                     ) {
                         try {
+                            if (
+                                typeof window !== "undefined" &&
+                                (window as any).native?.startLinuxScreenAudio
+                            ) {
+                                await (window as any).native.startLinuxScreenAudio();
+                                await new Promise((r) => setTimeout(r, 250));
+                            }
+
                             const devices =
                                 await navigator.mediaDevices.enumerateDevices();
                             const audioInputs = devices.filter(
                                 (d) => d.kind === "audioinput",
                             );
-                            const monitorDevice =
+                            const streamDevice =
+                                audioInputs.find((d) =>
+                                    /liecord_stream_audio|LieCord_Stream_Audio/i.test(
+                                        d.label,
+                                    ),
+                                ) ||
                                 audioInputs.find((d) =>
                                     /liecord-virtual-source/i.test(d.label),
-                                ) ||
-                                audioInputs.find((d) =>
-                                    /monitor|монитор/i.test(d.label),
-                                ) ||
-                                audioInputs.find((d) =>
-                                    /reversed_stereo_sink/i.test(d.label),
                                 );
 
-                            if (monitorDevice) {
+                            if (streamDevice) {
                                 console.info(
-                                    "[VoiceClient] Capturing desktop monitor audio:",
-                                    monitorDevice.label,
+                                    "[VoiceClient] Capturing desktop stream audio:",
+                                    streamDevice.label,
                                 );
                                 const audioStream =
                                     await navigator.mediaDevices.getUserMedia({
                                         audio: {
                                             deviceId: {
-                                                exact: monitorDevice.deviceId,
+                                                exact: streamDevice.deviceId,
                                             },
                                             autoGainControl: false,
                                             echoCancellation: false,
@@ -975,6 +1019,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             this.audioProducer = undefined;
             this.emit("stopProduce", "audio");
         } else if (type === "screen") {
+            if (
+                typeof window !== "undefined" &&
+                (window as any).native?.stopLinuxScreenAudio
+            ) {
+                (window as any).native.stopLinuxScreenAudio().catch(() => {});
+            }
             if (this.screenAudioProducer) {
                 try {
                     if (this.screenAudioProducer.track) {

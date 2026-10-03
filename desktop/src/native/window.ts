@@ -1,3 +1,4 @@
+import { exec, execSync } from "child_process";
 import {
   app,
   BrowserWindow,
@@ -250,6 +251,52 @@ export async function createWindow(store: ConfigurationStore) {
       return !!pendingScreenSource;
     },
   );
+
+  let linuxAudioModuleId: string | null = null;
+
+  ipcMain.handle("startLinuxScreenAudio", async () => {
+    if (process.platform !== "linux") return false;
+    return new Promise((resolve) => {
+      if (linuxAudioModuleId) {
+        try {
+          execSync(`pactl unload-module ${linuxAudioModuleId}`);
+        } catch (_) {}
+        linuxAudioModuleId = null;
+      }
+      exec(
+        "pactl load-module module-remap-source master=@DEFAULT_SINK@.monitor source_name=liecord_stream_audio source_properties=device.description=LieCord_Stream_Audio",
+        (err, stdout) => {
+          if (err || !stdout.trim()) {
+            console.warn("[Linux Audio] pactl load-module failed:", err);
+            resolve(false);
+          } else {
+            linuxAudioModuleId = stdout.trim();
+            console.info("[Linux Audio] Loaded stream audio module:", linuxAudioModuleId);
+            resolve(true);
+          }
+        }
+      );
+    });
+  });
+
+  ipcMain.handle("stopLinuxScreenAudio", async () => {
+    if (linuxAudioModuleId) {
+      try {
+        execSync(`pactl unload-module ${linuxAudioModuleId}`);
+      } catch (_) {}
+      linuxAudioModuleId = null;
+    }
+    return true;
+  });
+
+  app.on("before-quit", () => {
+    if (linuxAudioModuleId) {
+      try {
+        execSync(`pactl unload-module ${linuxAudioModuleId}`);
+      } catch (_) {}
+      linuxAudioModuleId = null;
+    }
+  });
 
   ipcMain.handle("requestMicrophoneAccess", async () => {
     if (process.platform === "darwin") {
