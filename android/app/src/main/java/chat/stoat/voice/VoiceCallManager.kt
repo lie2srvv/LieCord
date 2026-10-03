@@ -26,6 +26,7 @@ import io.livekit.android.events.RoomEvent
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalVideoTrackOptions
 import io.livekit.android.room.track.RemoteAudioTrack
+import io.livekit.android.room.track.RemoteTrackPublication
 import io.livekit.android.room.track.ScreenSharePresets
 import io.livekit.android.room.track.Track
 import io.livekit.android.util.flow
@@ -68,6 +69,39 @@ object VoiceCallManager {
 
     var requestedChannelId: String? by mutableStateOf(null)
         private set
+
+    var watchingUserId: String? by mutableStateOf<String?>(null)
+        private set
+
+    fun watchStream(userId: String) {
+        watchingUserId = userId
+        updateScreenShareSubscriptions()
+    }
+
+    fun stopWatchingStream() {
+        watchingUserId = null
+        updateScreenShareSubscriptions()
+    }
+
+    fun updateScreenShareSubscriptions() {
+        val currentRoom = room ?: return
+        currentRoom.remoteParticipants.values.forEach { participant ->
+            val isTarget = participant.identity?.value == watchingUserId
+            participant.videoTrackPublications.forEach { (pub, _) ->
+                if (pub.source == Track.Source.SCREEN_SHARE) {
+                    (pub as? RemoteTrackPublication)?.setSubscribed(isTarget)
+                }
+            }
+            participant.audioTrackPublications.forEach { (pub, track) ->
+                if (pub.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                    (pub as? RemoteTrackPublication)?.setSubscribed(isTarget)
+                    if (isTarget && !isDeafened) {
+                        (track as? RemoteAudioTrack)?.setVolume(1.0)
+                    }
+                }
+            }
+        }
+    }
 
     fun openSheet(channelId: String) {
         requestedChannelId = channelId
@@ -144,6 +178,7 @@ object VoiceCallManager {
         errorResource = null
         isDeafened = false
         micWasOnBeforeDeafen = false
+        watchingUserId = null
 
         if (leftRoom != null) {
             if (hasPlayedJoinSound && !hasPlayedLeaveSound) {
@@ -201,6 +236,7 @@ object VoiceCallManager {
         room::state.flow.collect { state ->
             when (state) {
                 Room.State.CONNECTED -> {
+                    updateScreenShareSubscriptions()
                     if (!hasPlayedJoinSound) {
                         hasPlayedJoinSound = true
                         soundPlayer?.play(VoiceSound.USER_JOIN)
@@ -224,16 +260,36 @@ object VoiceCallManager {
     private suspend fun watchRoomEvents(room: Room) {
         room.events.events.collect { event ->
             when (event) {
-                is RoomEvent.TrackSubscribed -> applyDeafenState(room)
+                is RoomEvent.TrackSubscribed -> {
+                    applyDeafenState(room)
+                    if (event.publication.source == Track.Source.SCREEN_SHARE ||
+                        event.publication.source == Track.Source.SCREEN_SHARE_AUDIO
+                    ) {
+                        val shouldSubscribe = event.participant.identity?.value == watchingUserId
+                        if (!shouldSubscribe) {
+                            (event.publication as? RemoteTrackPublication)?.setSubscribed(false)
+                        }
+                    }
+                }
 
                 is RoomEvent.ParticipantConnected -> soundPlayer?.play(VoiceSound.USER_JOIN)
-                is RoomEvent.ParticipantDisconnected -> soundPlayer?.play(VoiceSound.USER_LEAVE)
+                is RoomEvent.ParticipantDisconnected -> {
+                    soundPlayer?.play(VoiceSound.USER_LEAVE)
+                    if (event.participant.identity?.value == watchingUserId) {
+                        watchingUserId = null
+                    }
+                }
 
                 is RoomEvent.TrackPublished -> {
-                    if (event.participant != room.localParticipant &&
-                        event.publication.source == Track.Source.SCREEN_SHARE
-                    ) {
-                        soundPlayer?.play(VoiceSound.STREAM_START)
+                    if (event.participant != room.localParticipant) {
+                        if (event.publication.source == Track.Source.SCREEN_SHARE) {
+                            soundPlayer?.play(VoiceSound.STREAM_START)
+                            val shouldSubscribe = event.participant.identity?.value == watchingUserId
+                            (event.publication as? RemoteTrackPublication)?.setSubscribed(shouldSubscribe)
+                        } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                            val shouldSubscribe = event.participant.identity?.value == watchingUserId
+                            (event.publication as? RemoteTrackPublication)?.setSubscribed(shouldSubscribe)
+                        }
                     }
                 }
 
@@ -242,6 +298,9 @@ object VoiceCallManager {
                         event.publication.source == Track.Source.SCREEN_SHARE
                     ) {
                         soundPlayer?.play(VoiceSound.STREAM_END)
+                        if (event.participant.identity?.value == watchingUserId) {
+                            watchingUserId = null
+                        }
                     }
                 }
 

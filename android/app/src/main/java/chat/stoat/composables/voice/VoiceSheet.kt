@@ -77,6 +77,9 @@ import io.livekit.android.compose.local.RoomLocal
 import io.livekit.android.compose.state.rememberParticipants
 import io.livekit.android.compose.state.rememberTracks
 import io.livekit.android.compose.ui.ScaleType
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.IconButton
+import io.livekit.android.compose.types.TrackReference
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.LocalVideoTrack
@@ -109,6 +112,7 @@ fun VoiceSheet(onDisconnect: () -> Unit) {
         val participants by rememberParticipants(room)
         val trackRefs by rememberTracks(passedRoom = room)
         val isDeafened = VoiceCallManager.isDeafened
+        var fullscreenTrackRef by remember { mutableStateOf<TrackReference?>(null) }
 
         val audioHandler = room.audioSwitchHandler
         var audioDevices by remember {
@@ -167,51 +171,160 @@ fun VoiceSheet(onDisconnect: () -> Unit) {
                     if (publication != null) {
                         val isTrackMuted by publication::muted.flow.collectAsState()
                         if (!isTrackMuted) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    .aspectRatio(16f / 9f)
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                            ) {
-                                VideoTrackView(
-                                    trackReference = trackRef,
-                                    room = room,
-                                    // Letterbox vertical feeds
-                                    scaleType = ScaleType.FitInside,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                            val isScreenShare = trackRef.source == Track.Source.SCREEN_SHARE
+                            val isLocal = trackRef.participant == room.localParticipant
+                            val participantUserId = trackRef.participant.identity?.value
+                            val isWatching = !isScreenShare || isLocal || (VoiceCallManager.watchingUserId == participantUserId)
+
+                            if (!isWatching && participantUserId != null) {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.surfaceContainer.copy(
-                                        alpha = 0.85f
-                                    ),
-                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    shape = MaterialTheme.shapes.large,
                                     modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(8.dp)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        modifier = Modifier.padding(
-                                            horizontal = 8.dp,
-                                            vertical = 4.dp
-                                        )
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        if (trackRef.source == Track.Source.SCREEN_SHARE) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_screen_share_24dp),
-                                                contentDescription = stringResource(R.string.voice_screen_sharing),
-                                                modifier = Modifier.size(16.dp)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = MaterialTheme.shapes.medium,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_screen_share_24dp),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Text(
+                                                    text = displayNameInChannel(participantUserId, channelId),
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                Text(
+                                                    text = stringResource(R.string.voice_screen_sharing),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Button(
+                                            onClick = {
+                                                VoiceCallManager.watchStream(participantUserId)
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(stringResource(R.string.voice_watch_stream))
+                                        }
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .aspectRatio(16f / 9f)
+                                        .clip(MaterialTheme.shapes.large)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                                        .clickable {
+                                            fullscreenTrackRef = trackRef
+                                        }
+                                ) {
+                                    VideoTrackView(
+                                        trackReference = trackRef,
+                                        room = room,
+                                        scaleType = ScaleType.FitInside,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainer.copy(
+                                            alpha = 0.85f
+                                        ),
+                                        shape = MaterialTheme.shapes.small,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(8.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            modifier = Modifier.padding(
+                                                horizontal = 8.dp,
+                                                vertical = 4.dp
+                                            )
+                                        ) {
+                                            if (trackRef.source == Track.Source.SCREEN_SHARE) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_screen_share_24dp),
+                                                    contentDescription = stringResource(R.string.voice_screen_sharing),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = trackRef.participant.identity?.value
+                                                    ?.let { displayNameInChannel(it, channelId) }
+                                                    ?: stringResource(R.string.unknown),
+                                                style = MaterialTheme.typography.labelMedium
                                             )
                                         }
-                                        Text(
-                                            text = trackRef.participant.identity?.value
-                                                ?.let { displayNameInChannel(it, channelId) }
-                                                ?: stringResource(R.string.unknown),
-                                            style = MaterialTheme.typography.labelMedium
-                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        if (isScreenShare && !isLocal) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                                                shape = androidx.compose.foundation.shape.CircleShape,
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clickable {
+                                                        VoiceCallManager.stopWatchingStream()
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_close_24dp),
+                                                        contentDescription = stringResource(R.string.voice_stop_watching),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                                            shape = androidx.compose.foundation.shape.CircleShape,
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clickable {
+                                                    fullscreenTrackRef = trackRef
+                                                }
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_fullscreen_24dp),
+                                                    contentDescription = stringResource(R.string.voice_stream_fullscreen),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -614,6 +727,124 @@ fun VoiceSheet(onDisconnect: () -> Unit) {
                         painter = painterResource(R.drawable.ic_call_end_24dp__fill),
                         contentDescription = stringResource(R.string.voice_action_disconnect)
                     )
+                }
+            }
+        }
+
+        fullscreenTrackRef?.let { activeTrack ->
+            var isFill by remember { mutableStateOf(false) }
+            var rotationAngle by remember { mutableStateOf(0f) }
+            var showControls by remember { mutableStateOf(true) }
+
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { fullscreenTrackRef = null },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(androidx.compose.ui.graphics.Color.Black)
+                        .clickable { showControls = !showControls }
+                ) {
+                    VideoTrackView(
+                        trackReference = activeTrack,
+                        room = room,
+                        scaleType = if (isFill) ScaleType.Fill else ScaleType.FitInside,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                rotationZ = rotationAngle
+                            }
+                    )
+
+                    AnimatedVisibility(
+                        visible = showControls,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        colors = listOf(
+                                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.8f),
+                                            androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                    )
+                                )
+                                .statusBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                IconButton(onClick = { fullscreenTrackRef = null }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_fullscreen_exit_24dp),
+                                        contentDescription = stringResource(R.string.voice_stream_fullscreen),
+                                        tint = androidx.compose.ui.graphics.Color.White
+                                    )
+                                }
+                                Text(
+                                    text = activeTrack.participant.identity?.value
+                                        ?.let { displayNameInChannel(it, channelId) }
+                                        ?: stringResource(R.string.unknown),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = androidx.compose.ui.graphics.Color.White
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                IconButton(
+                                    onClick = {
+                                        rotationAngle = (rotationAngle + 90f) % 360f
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_rotate_right_24dp),
+                                        contentDescription = stringResource(R.string.voice_stream_rotate),
+                                        tint = androidx.compose.ui.graphics.Color.White
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        isFill = !isFill
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_crop_24dp),
+                                        contentDescription = if (isFill) stringResource(R.string.voice_stream_fit) else stringResource(R.string.voice_stream_fill),
+                                        tint = if (isFill) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.White
+                                    )
+                                }
+                                if (activeTrack.source == Track.Source.SCREEN_SHARE &&
+                                    activeTrack.participant != room.localParticipant
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            VoiceCallManager.stopWatchingStream()
+                                            fullscreenTrackRef = null
+                                        }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_close_24dp),
+                                            contentDescription = stringResource(R.string.voice_stop_watching),
+                                            tint = androidx.compose.ui.graphics.Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

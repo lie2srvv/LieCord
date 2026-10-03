@@ -650,4 +650,10 @@
     <string name="geogate_acknowledge">Принять</string>
     <string name="voice_join_permission_rationale_permission_mic">Ваш микрофон, чтобы другие могли слышать вас, когда он включен</string>
     <string name="voice_join_permission_rationale_assurance">Не беспокойтесь, мы не будем использовать ваш микрофон или камеру без вашего разрешения.</string>
+    <string name="voice_watch_stream">Смотреть</string>
+    <string name="voice_stop_watching">Перестать смотреть</string>
+    <string name="voice_stream_fullscreen">Во весь экран</string>
+    <string name="voice_stream_fit">Вписать</string>
+    <string name="voice_stream_fill">Заполнить</string>
+    <string name="voice_stream_rotate">Повернуть</string>
 </resources>
