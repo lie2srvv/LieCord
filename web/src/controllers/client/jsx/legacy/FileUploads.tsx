@@ -194,9 +194,10 @@ export function FileUploader(props: Props) {
                 const selectedFile = files[0];
                 if (!selectedFile) return;
 
-                const isImage =
-                    selectedFile.type.startsWith("image/") &&
-                    !selectedFile.type.includes("gif");
+                const isImageOrVideo =
+                    selectedFile.type.startsWith("image/") ||
+                    selectedFile.type.startsWith("video/") ||
+                    /\.(png|jpe?g|webp|mp4|webm|mov|mkv|avi|m4v)$/i.test(selectedFile.name);
 
                 const shouldCrop =
                     (props.style === "icon" || props.style === "banner") &&
@@ -204,17 +205,27 @@ export function FileUploader(props: Props) {
                         fileType === "icons" ||
                         fileType === "banners" ||
                         fileType === "backgrounds") &&
-                    isImage;
+                    isImageOrVideo;
 
                 if (shouldCrop) {
                     const isIcon = props.style === "icon" || fileType === "avatars" || fileType === "icons";
+                    // Aspect ratios:
+                    // 1:1 for avatars/icons
+                    // 3.6:1 for user profile background (modal is ~560px wide, banner block ~155px high)
+                    // 2:1 for server banner (header ~240px wide, banner height 120px)
+                    const aspectRatio = isIcon
+                        ? 1
+                        : fileType === "backgrounds"
+                        ? 3.6
+                        : 2.0;
+
                     modalController.push({
                         type: "crop_image",
                         file: selectedFile,
-                        aspectRatio: isIcon ? 1 : 16 / 9,
+                        aspectRatio,
                         isCircle: isIcon,
-                        onCrop: async (croppedFile: File) => {
-                            await handleFileProcess(croppedFile);
+                        onCrop: async (processedFile: File) => {
+                            await handleFileProcess(processedFile);
                         },
                     });
                 } else {

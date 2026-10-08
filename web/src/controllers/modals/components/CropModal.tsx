@@ -1,14 +1,14 @@
 import { ZoomIn, ZoomOut, Reset } from "@styled-icons/boxicons-regular";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { Text } from "preact-i18n";
-import { Button, Modal, Row } from "@revoltchat/ui";
+import { Button, Modal } from "@revoltchat/ui";
 
 import styles from "./CropModal.module.scss";
 import { ModalProps } from "../types";
 
 export interface CropModalConfig {
     file: File;
-    aspectRatio?: number; // width / height, e.g. 1 for avatar, 2.5 for banner
+    aspectRatio?: number; // width / height, e.g. 1 for avatar, 4 for user banner, 2 for server banner
     isCircle?: boolean;
     title?: string;
     onCrop: (croppedFile: File) => Promise<void> | void;
@@ -24,8 +24,12 @@ export default function CropModal({
     ...props
 }: ModalProps<"crop_image">) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
+    const mediaRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
+    const [mediaLoaded, setMediaLoaded] = useState(false);
+    const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
     const [loading, setLoading] = useState(false);
+
+    const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name);
 
     // Zoom and position offsets (in CSS display pixels relative to center)
     const [scale, setScale] = useState<number>(1);
@@ -44,28 +48,28 @@ export default function CropModal({
         y: 0,
     });
 
-    // Load original image
+    const [mediaSrc, setMediaSrc] = useState<string>("");
+
+    // Load original image or video URL
     useEffect(() => {
-        let active = true;
         const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            if (!active) return;
-            setImageEl(img);
-        };
-        img.src = url;
+        setMediaSrc(url);
 
         return () => {
-            active = false;
             URL.revokeObjectURL(url);
         };
     }, [file]);
 
+    const handleMediaLoaded = (naturalW: number, naturalH: number) => {
+        setNaturalDimensions({ width: naturalW, height: naturalH });
+        setMediaLoaded(true);
+    };
+
     // Calculate cropBox size and initial scale to cover the crop area
     useEffect(() => {
-        if (!containerRef.current || !imageEl) return;
+        if (!containerRef.current || !mediaLoaded || naturalDimensions.width === 0) return;
 
-        const containerW = containerRef.current.clientWidth || 460;
+        const containerW = containerRef.current.clientWidth || 500;
         const containerH = containerRef.current.clientHeight || 320;
 
         let boxW: number;
@@ -91,23 +95,23 @@ export default function CropModal({
 
         setCropBox({ width: boxW, height: boxH, x: boxX, y: boxY });
 
-        // Min scale so image completely covers the crop box
-        const scaleX = boxW / imageEl.naturalWidth;
-        const scaleY = boxH / imageEl.naturalHeight;
+        // Min scale so media completely covers the crop box
+        const scaleX = boxW / naturalDimensions.width;
+        const scaleY = boxH / naturalDimensions.height;
         const initialMinScale = Math.max(scaleX, scaleY);
 
         setMinScale(initialMinScale);
         setScale(initialMinScale);
         setPosition({ x: 0, y: 0 });
-    }, [imageEl, aspectRatio]);
+    }, [mediaLoaded, naturalDimensions, aspectRatio]);
 
     // Clamp position within crop box
     const clampPosition = useCallback(
         (newPos: { x: number; y: number }, currentScale: number) => {
-            if (!imageEl) return newPos;
+            if (naturalDimensions.width === 0) return newPos;
 
-            const currentW = imageEl.naturalWidth * currentScale;
-            const currentH = imageEl.naturalHeight * currentScale;
+            const currentW = naturalDimensions.width * currentScale;
+            const currentH = naturalDimensions.height * currentScale;
 
             const maxOffsetX = Math.max(0, (currentW - cropBox.width) / 2);
             const maxOffsetY = Math.max(0, (currentH - cropBox.height) / 2);
@@ -117,7 +121,7 @@ export default function CropModal({
                 y: Math.max(-maxOffsetY, Math.min(maxOffsetY, newPos.y)),
             };
         },
-        [imageEl, cropBox],
+        [naturalDimensions, cropBox],
     );
 
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
@@ -185,12 +189,24 @@ export default function CropModal({
     };
 
     const handleSave = async () => {
-        if (!imageEl) return;
+        if (!mediaLoaded) return;
         setLoading(true);
 
         try {
+            // For video: upload original file directly so it doesn't lose animation and frames!
+            if (isVideo) {
+                await onCrop(file);
+                onClose();
+                return;
+            }
+
+            const imgEl = mediaRef.current as HTMLImageElement;
+            if (!imgEl) return;
+
             // Target output dimensions
-            const targetWidth = isCircle ? 512 : Math.round(Math.min(1920, Math.max(cropBox.width * 2, 800)));
+            const targetWidth = isCircle
+                ? 512
+                : Math.round(Math.min(1920, Math.max(cropBox.width * 2, 960)));
             const targetHeight = Math.round(targetWidth / aspectRatio);
 
             const canvas = document.createElement("canvas");
@@ -203,8 +219,8 @@ export default function CropModal({
             }
 
             // Image display dimensions
-            const displayW = imageEl.naturalWidth * scale;
-            const displayH = imageEl.naturalHeight * scale;
+            const displayW = naturalDimensions.width * scale;
+            const displayH = naturalDimensions.height * scale;
 
             // Center of cropbox in container coords
             const cropCenterX = cropBox.x + cropBox.width / 2;
@@ -219,7 +235,7 @@ export default function CropModal({
             const cropYInDisplay = cropBox.y - imgTop;
 
             // Convert to natural image pixel coords
-            const naturalRatio = imageEl.naturalWidth / displayW;
+            const naturalRatio = naturalDimensions.width / displayW;
             const srcX = cropXInDisplay * naturalRatio;
             const srcY = cropYInDisplay * naturalRatio;
             const srcW = cropBox.width * naturalRatio;
@@ -229,7 +245,7 @@ export default function CropModal({
             ctx.imageSmoothingQuality = "high";
 
             ctx.drawImage(
-                imageEl,
+                imgEl,
                 srcX,
                 srcY,
                 srcW,
@@ -267,17 +283,17 @@ export default function CropModal({
             );
         } catch (err) {
             setLoading(false);
-            console.error("Failed to crop image:", err);
+            console.error("Failed to crop media:", err);
         }
     };
 
-    // Calculate background image transform
-    const containerW = containerRef.current?.clientWidth || 460;
+    // Calculate background media transform
+    const containerW = containerRef.current?.clientWidth || 500;
     const containerH = containerRef.current?.clientHeight || 320;
-    const displayW = imageEl ? imageEl.naturalWidth * scale : 0;
-    const displayH = imageEl ? imageEl.naturalHeight * scale : 0;
-    const imgX = (containerW - displayW) / 2 + position.x;
-    const imgY = (containerH - displayH) / 2 + position.y;
+    const displayW = naturalDimensions.width * scale;
+    const displayH = naturalDimensions.height * scale;
+    const mediaX = (containerW - displayW) / 2 + position.x;
+    const mediaY = (containerH - displayH) / 2 + position.y;
 
     const modalTitle =
         title ||
@@ -297,7 +313,7 @@ export default function CropModal({
                     confirmation: true,
                     onClick: handleSave,
                     children: <Text id="app.special.modals.actions.save" />,
-                    disabled: loading || !imageEl,
+                    disabled: loading || !mediaLoaded,
                 },
                 {
                     onClick: () => {
@@ -316,26 +332,50 @@ export default function CropModal({
                     onMouseDown={handlePointerDown}
                     onTouchStart={handlePointerDown}
                     onWheel={handleWheel}>
-                    {imageEl && (
-                        <img
-                            src={imageEl.src}
-                            alt="Crop Preview"
-                            className={styles.imageCanvas}
-                            style={{
-                                width: `${displayW}px`,
-                                height: `${displayH}px`,
-                                transform: `translate3d(${imgX}px, ${imgY}px, 0)`,
-                            }}
-                        />
+                    {mediaSrc && (
+                        isVideo ? (
+                            <video
+                                ref={(el) => (mediaRef.current = el)}
+                                src={mediaSrc}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                onLoadedMetadata={(e) => {
+                                    const v = e.currentTarget;
+                                    handleMediaLoaded(v.videoWidth, v.videoHeight);
+                                }}
+                                className={styles.imageCanvas}
+                                style={{
+                                    width: `${displayW}px`,
+                                    height: `${displayH}px`,
+                                    transform: `translate3d(${mediaX}px, ${mediaY}px, 0)`,
+                                }}
+                            />
+                        ) : (
+                            <img
+                                ref={(el) => (mediaRef.current = el)}
+                                src={mediaSrc}
+                                alt="Crop Preview"
+                                onLoad={(e) => {
+                                    const img = e.currentTarget;
+                                    handleMediaLoaded(img.naturalWidth, img.naturalHeight);
+                                }}
+                                className={styles.imageCanvas}
+                                style={{
+                                    width: `${displayW}px`,
+                                    height: `${displayH}px`,
+                                    transform: `translate3d(${mediaX}px, ${mediaY}px, 0)`,
+                                }}
+                            />
+                        )
                     )}
 
                     {/* SVG Mask: darkens the area outside crop box */}
                     <svg className={styles.overlaySvg}>
                         <defs>
                             <mask id="cropMask">
-                                {/* Fill entire viewport with white */}
                                 <rect width="100%" height="100%" fill="white" />
-                                {/* Cut out the hole with black */}
                                 {isCircle ? (
                                     <circle
                                         cx={cropBox.x + cropBox.width / 2}
