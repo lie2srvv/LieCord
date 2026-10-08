@@ -193,9 +193,44 @@ export default function CropModal({
         setLoading(true);
 
         try {
-            // For video: upload original file directly so it doesn't lose animation and frames!
+            // Calculate crop area in original natural coordinates
+            const displayW = naturalDimensions.width * scale;
+            const displayH = naturalDimensions.height * scale;
+
+            // Center of cropbox in container coords
+            const cropCenterX = cropBox.x + cropBox.width / 2;
+            const cropCenterY = cropBox.y + cropBox.height / 2;
+
+            // Image top-left in container coords
+            const imgLeft = cropCenterX + position.x - displayW / 2;
+            const imgTop = cropCenterY + position.y - displayH / 2;
+
+            // Crop area relative to image in display pixels
+            const cropXInDisplay = cropBox.x - imgLeft;
+            const cropYInDisplay = cropBox.y - imgTop;
+
+            // Convert to natural media pixel coords
+            const naturalRatio = naturalDimensions.width / displayW;
+            const rawSrcX = Math.round(cropXInDisplay * naturalRatio);
+            const rawSrcY = Math.round(cropYInDisplay * naturalRatio);
+            const rawSrcW = Math.round(cropBox.width * naturalRatio);
+            const rawSrcH = Math.round(cropBox.height * naturalRatio);
+
+            // Clamp crop box within natural dimensions
+            const srcX = Math.max(0, Math.min(naturalDimensions.width - 2, rawSrcX));
+            const srcY = Math.max(0, Math.min(naturalDimensions.height - 2, rawSrcY));
+            const srcW = Math.max(2, Math.min(naturalDimensions.width - srcX, rawSrcW));
+            const srcH = Math.max(2, Math.min(naturalDimensions.height - srcY, rawSrcH));
+
+            // For video: preserve full animation and frames!
+            // We pass the calculated crop coordinates encoded in filename so server-side FFmpeg can crop exactly what user framed.
             if (isVideo) {
-                await onCrop(file);
+                const ext = file.name.split(".").pop() || "mp4";
+                const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || "video";
+                const croppedVideoFile = new File([file], `${baseName}_crop_${srcX}_${srcY}_${srcW}_${srcH}.${ext}`, {
+                    type: file.type || "video/mp4",
+                });
+                await onCrop(croppedVideoFile);
                 onClose();
                 return;
             }
@@ -218,28 +253,7 @@ export default function CropModal({
                 throw new Error("Unable to create canvas context");
             }
 
-            // Image display dimensions
-            const displayW = naturalDimensions.width * scale;
-            const displayH = naturalDimensions.height * scale;
 
-            // Center of cropbox in container coords
-            const cropCenterX = cropBox.x + cropBox.width / 2;
-            const cropCenterY = cropBox.y + cropBox.height / 2;
-
-            // Image top-left in container coords
-            const imgLeft = cropCenterX + position.x - displayW / 2;
-            const imgTop = cropCenterY + position.y - displayH / 2;
-
-            // Crop area relative to image in display pixels
-            const cropXInDisplay = cropBox.x - imgLeft;
-            const cropYInDisplay = cropBox.y - imgTop;
-
-            // Convert to natural image pixel coords
-            const naturalRatio = naturalDimensions.width / displayW;
-            const srcX = cropXInDisplay * naturalRatio;
-            const srcY = cropYInDisplay * naturalRatio;
-            const srcW = cropBox.width * naturalRatio;
-            const srcH = cropBox.height * naturalRatio;
 
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
