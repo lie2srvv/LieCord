@@ -1,0 +1,103 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 520px;
+    user-select: none;
+}
+
+.viewportContainer {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    background-color: #111214;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+.imageCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.overlaySvg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.controlsRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 0 4px;
+}
+
+.sliderContainer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+
+    svg {
+        color: var(--secondary-foreground);
+        flex-shrink: 0;
+    }
+}
+
+.zoomSlider {
+    flex-grow: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--secondary-background);
+    outline: none;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        transition: transform 0.1s ease;
+
+        &:hover {
+            transform: scale(1.15);
+        }
+    }
+
+    &::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        border: none;
+    }
+}
+
+.instructions {
+    font-size: 13px;
+    color: var(--secondary-foreground);
+    text-align: center;
+}

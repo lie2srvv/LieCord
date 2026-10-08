@@ -52,6 +52,7 @@ import ShowToken from "./components/ShowToken";
 import SignOutSessions from "./components/SignOutSessions";
 import SignedOut from "./components/SignedOut";
 import UserPicker from "./components/UserPicker";
+import CropModal from "./components/CropModal";
 import { OnboardingModal } from "./components/legacy/Onboarding";
 import { UserProfile } from "./components/legacy/UserProfile";
 import { Modal } from "./types";
@@ -300,4 +301,5 @@ export const modalController = new ModalControllerExtended({
     changelog_usernames: ChangelogUsernames,
     reset_bot_token: Confirmation,
     screen_share: ScreenShareModal,
+    crop_image: CropModal,
 });

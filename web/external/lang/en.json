@@ -157,7 +157,7 @@
                     "viewing_old": "Viewing older messages",
                     "jump_present": "Jump to present",
                     "jump_beginning": "Jump to the beginning",
-                    "new_messages": "New messages since {{time_ago}}",
+                    "new_messages": "New messages ({{time_ago}})",
                     "spoiler_attachment": "Spoiler",
                     "failed_load": "Couldn't load message.",
                     "not_loaded": "Message not loaded, click to jump",
@@ -772,6 +772,11 @@
                 "edit_keybind": {
                     "title": "Edit keybind for {{action}}",
                     "placeholder": "Press keys to record"
+                },
+                "crop": {
+                    "crop_avatar": "Crop Avatar",
+                    "crop_banner": "Crop Banner",
+                    "drag_instructions": "Drag image to adjust position, use wheel or slider to zoom"
                 }
             },
             "popovers": {

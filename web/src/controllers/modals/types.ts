@@ -196,6 +196,14 @@ export type Modal = {
           callback: () => Promise<void>;
       }
     | { type: "screen_share" }
+    | {
+          type: "crop_image";
+          file: File;
+          aspectRatio?: number;
+          isCircle?: boolean;
+          title?: string;
+          onCrop: (croppedFile: File) => Promise<void> | void;
+      }
 );
 
 export type ModalProps<T extends Modal["type"]> = Modal & { type: T } & {

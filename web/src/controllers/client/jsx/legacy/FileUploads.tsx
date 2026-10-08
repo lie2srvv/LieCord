@@ -140,39 +140,85 @@ export function FileUploader(props: Props) {
         setGeneratedPreviewURL("");
     }, [previewFile]);
 
+    async function handleFileProcess(fileToProcess: File) {
+        setUploading(true);
+        try {
+            if (props.behaviour === "multi") {
+                props.onChange([fileToProcess]);
+            } else if (props.behaviour === "ask") {
+                props.onChange(fileToProcess);
+            } else {
+                await props.onUpload(
+                    await uploadFile(
+                        client.configuration!.features.autumn.url,
+                        fileType,
+                        fileToProcess,
+                    ),
+                );
+
+                if (props.previewAfterUpload) {
+                    setPreviewFile(fileToProcess);
+                }
+            }
+        } catch (err) {
+            return modalController.push({
+                type: "error",
+                error: takeError(err),
+            });
+        } finally {
+            setUploading(false);
+        }
+    }
+
     function onClick() {
         if (uploading) return;
 
         grabFiles(
             maxFileSize,
             async (files) => {
-                setUploading(true);
-
-                try {
-                    if (props.behaviour === "multi") {
+                if (props.behaviour === "multi") {
+                    setUploading(true);
+                    try {
                         props.onChange(files);
-                    } else if (props.behaviour === "ask") {
-                        props.onChange(files[0]);
-                    } else {
-                        await props.onUpload(
-                            await uploadFile(
-                                client.configuration!.features.autumn.url,
-                                fileType,
-                                files[0],
-                            ),
-                        );
-
-                        if (props.previewAfterUpload) {
-                            setPreviewFile(files[0]);
-                        }
+                    } catch (err) {
+                        return modalController.push({
+                            type: "error",
+                            error: takeError(err),
+                        });
+                    } finally {
+                        setUploading(false);
                     }
-                } catch (err) {
-                    return modalController.push({
-                        type: "error",
-                        error: takeError(err),
+                    return;
+                }
+
+                const selectedFile = files[0];
+                if (!selectedFile) return;
+
+                const isImage =
+                    selectedFile.type.startsWith("image/") &&
+                    !selectedFile.type.includes("gif");
+
+                const shouldCrop =
+                    (props.style === "icon" || props.style === "banner") &&
+                    (fileType === "avatars" ||
+                        fileType === "icons" ||
+                        fileType === "banners" ||
+                        fileType === "backgrounds") &&
+                    isImage;
+
+                if (shouldCrop) {
+                    const isIcon = props.style === "icon" || fileType === "avatars" || fileType === "icons";
+                    modalController.push({
+                        type: "crop_image",
+                        file: selectedFile,
+                        aspectRatio: isIcon ? 1 : 16 / 9,
+                        isCircle: isIcon,
+                        onCrop: async (croppedFile: File) => {
+                            await handleFileProcess(croppedFile);
+                        },
                     });
-                } finally {
-                    setUploading(false);
+                } else {
+                    await handleFileProcess(selectedFile);
                 }
             },
             () =>
