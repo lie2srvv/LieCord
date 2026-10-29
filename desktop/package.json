@@ -3,7 +3,11 @@
   "productName": "LieCord",
   "version": "1.5.4",
   "main": ".vite/build/main.js",
-  "repository": "liecord/desktop",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lie2srvv/LieCord.git",
+    "directory": "desktop"
+  },
   "scripts": {
     "start": "electron-forge start -- --no-sandbox",
     "package": "electron-forge package",
@@ -17,11 +21,15 @@
     "run:flatpak": "flatpak run com.lie2srvv.LieCord",
     "run:nix": "/usr/bin/env electron-nix ."
   },
-  "keywords": [],
-  "author": {
-    "name": "izzy",
-    "email": "me@insrt.uk"
-  },
+  "keywords": [
+    "chat",
+    "webrtc",
+    "voice",
+    "screensharing",
+    "desktop"
+  ],
+  "author": "lie2srvv",
+  "license": "AGPL-3.0",
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-appx": "^7.11.2",

@@ -167,9 +167,13 @@
     },
     "name": "liecord-web",
     "main": "index.js",
-    "repository": "https://github.com/revoltchat/revite.git",
-    "author": "Paul <paulmakles@gmail.com>",
-    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/lie2srvv/LieCord.git",
+        "directory": "web"
+    },
+    "author": "lie2srvv",
+    "license": "AGPL-3.0",
     "packageManager": "yarn@3.2.0",
     "resolutions": {
         "@revoltchat/ui": "portal:external/components",
