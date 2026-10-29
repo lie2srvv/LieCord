@@ -24,13 +24,14 @@ import { VoiceChannelParticipants } from "./VoiceChannelParticipants";
 
 const ServerBase = styled.div`
     height: 100%;
-    width: 232px;
+    width: 234px;
+    flex-grow: 1;
     display: flex;
     flex-shrink: 0;
     flex-direction: column;
     background: var(--secondary-background);
-    border-start-start-radius: 8px;
-    border-end-start-radius: 8px;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
     overflow: hidden;
 
     ${isTouchscreenDevice &&

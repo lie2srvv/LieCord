@@ -28,50 +28,98 @@
     max-width: 100%;
     align-items: center;
     flex-direction: row;
+    box-sizing: border-box;
 
     > svg {
         cursor: pointer;
     }
 
     .details {
-        flex-grow: 1;
+        flex: 1 1 auto;
         min-width: 0;
         display: flex;
         flex-direction: column;
-
-        * {
-            min-width: 0;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-        }
+        overflow: hidden;
 
         .usernameDetail {
             display: flex;
             flex-direction: column;
             margin-bottom: 4px;
+            min-width: 0;
+            overflow: hidden;
+            max-width: 100%;
         }
 
         .displayname {
-            font-size: 22px;
+            display: block;
+            font-size: 20px;
             font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+            cursor: pointer;
         }
 
         .username {
             display: block;
             font-size: 13px;
-            font-weight: 600;
-            width: fit-content;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
             color: var(--secondary-foreground);
+            cursor: pointer;
         }
 
         .status {
+            display: block;
             font-size: 13px;
             color: var(--secondary-foreground);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
 
             > div {
                 display: inline !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
+        }
+    }
+
+    .actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-left: auto;
+
+        a,
+        button {
+            flex-shrink: 0;
+        }
+    }
+
+    @media (max-width: 520px) {
+        padding: 16px 12px;
+        gap: 12px;
+
+        .details {
+            .displayname {
+                font-size: 17px;
+            }
+
+            .username {
+                font-size: 12px;
+            }
+        }
+
+        .actions {
+            gap: 6px;
         }
     }
 }
@@ -119,74 +167,49 @@
         user-select: text;
     }
 
-    .empty {
-        display: flex;
-        gap: 10px;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        opacity: 0.5;
-        flex-grow: 1;
-        font-size: 14px;
-        font-weight: 500;
-    }
-
     .category {
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
-        color: var(--tertiary-foreground);
-        margin-bottom: 8px;
-
-        &:not(:first-child) {
-            margin-top: 8px;
-        }
+        color: var(--secondary-foreground);
+        margin-top: 12px;
+        margin-bottom: 4px;
     }
 
-    > div {
-        > span {
+    .entry {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+
+        &:hover {
+            background: var(--secondary-background);
+        }
+
+        span {
             font-size: 14px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
     }
-}
 
-.entries {
-    gap: 8px;
-    display: flex;
-    flex-direction: column;
-
-    a {
-        min-width: 0;
-    }
-}
-
-.entry {
-    gap: 12px;
-    font-weight: 500;
-    min-width: 0;
-    padding: 12px;
-    display: flex;
-    cursor: pointer;
-    align-items: center;
-    transition: background-color 0.1s;
-    color: var(--foreground);
-    border-radius: var(--border-radius);
-    background-color: var(--secondary-background);
-
-    &:hover {
-        background-color: var(--primary-background);
+    .entries {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
-    img {
-        width: 32px;
-        height: 32px;
-        border-radius: var(--border-radius-half);
-    }
-
-    span {
-        min-width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+    .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 16px;
+        color: var(--secondary-foreground);
     }
 }

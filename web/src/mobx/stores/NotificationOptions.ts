@@ -7,6 +7,7 @@ import { translate } from "preact-i18n";
 import { mapToRecord } from "../../lib/conversion";
 
 import { history, routeInformation } from "../../context/history";
+import { clientController } from "../../controllers/client/ClientController";
 
 import State from "../State";
 import Persistent from "../interfaces/Persistent";
@@ -91,6 +92,26 @@ export default class NotificationOptions
         this.onMessage = this.onMessage.bind(this);
         this.onRelationship = this.onRelationship.bind(this);
         this.onVisibilityChange = this.onVisibilityChange.bind(this);
+
+        // Listen for native desktop notification click to navigate to channel
+        try {
+            if ((window as any).native?.onNotificationClicked) {
+                (window as any).native.onNotificationClicked(({ channelId }: { channelId: string }) => {
+                    if (channelId && channelId !== routeInformation.getChannel()) {
+                        const channel = this.state.client?.channels.get(channelId);
+                        if (channel) {
+                            if (channel.channel_type === "TextChannel") {
+                                history.push(`/server/${channel.server_id}/channel/${channelId}`);
+                            } else {
+                                history.push(`/channel/${channelId}`);
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to register desktop onNotificationClicked:", e);
+        }
     }
 
     get id() {
@@ -259,6 +280,12 @@ export default class NotificationOptions
      * @param message Message
      */
     async onMessage(message: Message) {
+        // Filter strictly by currently active profile!
+        const activeUserId = clientController.current;
+        if (activeUserId && message.client?.user?._id && message.client.user._id !== activeUserId) {
+            return;
+        }
+
         // Ignore if we are currently looking and focused on the channel.
         if (
             message.channel_id === routeInformation.getChannel() &&
@@ -398,6 +425,37 @@ export default class NotificationOptions
                     }
                     break;
             }
+        }
+
+        // Trigger Android native push notification if running in LieCord Android app
+        try {
+            if ((window as any).LieCordNative?.showNotification) {
+                (window as any).LieCordNative.showNotification(
+                    title || "LieCord",
+                    body || "Новое сообщение",
+                    icon || null,
+                    message.channel_id || null,
+                    message._id || null
+                );
+            }
+        } catch (e) {
+            console.error("Failed to show Android native notification:", e);
+        }
+
+        // Trigger Electron native desktop notification (Windows, Linux D-Bus, macOS)
+        try {
+            if ((window as any).native?.showNotification) {
+                (window as any).native.showNotification({
+                    title: title || "LieCord",
+                    body: body || "",
+                    iconUrl: icon || null,
+                    channelId: message.channel_id || null,
+                    messageId: message._id || null,
+                    silent: true,
+                });
+            }
+        } catch (e) {
+            console.error("Failed to show Electron native desktop notification:", e);
         }
 
         const notif = await createNotification(title!, {

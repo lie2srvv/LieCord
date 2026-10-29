@@ -175,7 +175,7 @@ export function Sessions() {
                                     <input
                                         type="text"
                                         className={styles.name}
-                                        value={session.name}
+                                        value={(session.name || "").replace(/Revolt/gi, "LieCord")}
                                         autoComplete="off"
                                         style={{ pointerEvents: "none" }}
                                     />

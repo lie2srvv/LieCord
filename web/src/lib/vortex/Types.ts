@@ -62,7 +62,7 @@ export interface VoiceError {
     message: string;
 }
 
-export type ProduceType = "audio" | "screen";
+export type ProduceType = "audio" | "screen" | "camera";
 
 export interface AuthenticationResult {
     userId: string;
@@ -80,6 +80,7 @@ export interface VoiceUser {
     audio?: boolean;
     speaking?: boolean;
     screen?: boolean;
+    camera?: boolean;
 }
 
 export interface ConsumerList {

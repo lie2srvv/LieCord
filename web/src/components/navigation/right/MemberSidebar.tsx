@@ -176,7 +176,7 @@ export const GroupMemberSidebar = observer(
         const entries = useEntries(channel, () => channel.recipient_ids!);
 
         return (
-            <GenericSidebarBase data-scroll-offset="with-padding">
+            <GenericSidebarBase borderSide="left" data-scroll-offset="with-padding">
                 {/*<Container>
                     {isTouchscreenDevice && <div>Group settings go here</div>}
                 </Container>*/}
@@ -231,7 +231,7 @@ export const ServerMemberSidebar = observer(
         );
 
         return (
-            <GenericSidebarBase data-scroll-offset="with-padding">
+            <GenericSidebarBase borderSide="left" data-scroll-offset="with-padding">
                 {/*<Container>
                     {isTouchscreenDevice && <div>Server settings go here</div>}
                 </Container>*/}

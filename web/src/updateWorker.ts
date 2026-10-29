@@ -15,25 +15,34 @@ const INTERVAL_HOUR = 36e5;
 let forceUpdate = false;
 let registration: ServiceWorkerRegistration | undefined;
 
-if (
+const isDesktopClient =
     typeof window !== "undefined" &&
-    window.isNative &&
-    "serviceWorker" in navigator
-) {
+    (Boolean((window as any).isNative) ||
+        Boolean((window as any).native) ||
+        Boolean((window as any).desktopConfig) ||
+        Boolean((window as any).isLieCordApp) ||
+        (typeof navigator !== "undefined" &&
+            (/Electron/i.test(navigator.userAgent) || /LieCord/i.test(navigator.userAgent))));
+
+if (isDesktopClient && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
     navigator.serviceWorker.getRegistrations().then((regs) => {
         for (const reg of regs) {
             reg.unregister();
         }
     });
+    if ("caches" in window) {
+        caches.keys().then((keys) => {
+            for (const key of keys) {
+                caches.delete(key);
+            }
+        });
+    }
 }
 
 export const updateSW = registerSW({
     onNeedRefresh() {
-        if (forceUpdate) {
-            updateSW(true);
-        } else {
-            internalEmit("PWA", "update");
-        }
+        // Automatically force reload on update
+        updateSW(true);
     },
     onOfflineReady() {
         console.info("Ready to work offline.");

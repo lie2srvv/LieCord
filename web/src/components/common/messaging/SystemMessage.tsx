@@ -1,3 +1,4 @@
+import { isCallStartedMessage } from "../../../lib/callMessage";
 import {
     InfoCircle,
     UserPlus,
@@ -86,16 +87,29 @@ const iconDictionary = {
 
 export const SystemMessage = observer(
     ({ attachContext, message, highlight, hideInfo }: Props) => {
+        const isCallStarted = isCallStartedMessage(message.content);
+
         const data = message.asSystemMessage;
-        if (!data) return null;
+        if (!data && !isCallStarted) return null;
 
         const settings = useApplicationState().settings;
 
-        const SystemMessageIcon =
-            iconDictionary[data.type as API.SystemMessage["type"]] ??
-            InfoCircle;
+        const SystemMessageIcon = isCallStarted
+            ? PhoneCall
+            : iconDictionary[data?.type as API.SystemMessage["type"]] ??
+              InfoCircle;
 
-        let children = null;
+        let children: any = null;
+        if (isCallStarted) {
+            children = (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>Звонок начат</span>
+                    {message.author && (
+                        <UserShort user={message.author} />
+                    )}
+                </div>
+            );
+        } else
         switch (data.type) {
             case "user_added":
             case "user_remove":
@@ -235,7 +249,7 @@ export const SystemMessage = observer(
         return (
             <MessageBase
                 highlight={highlight}
-                {...(attachContext
+                {...(attachContext && !isCallStarted
                     ? useTriggerEvents("Menu", {
                           message,
                           contextualChannel: message.channel,
@@ -244,7 +258,7 @@ export const SystemMessage = observer(
                 {!hideInfo && (
                     <MessageInfo click={false}>
                         <MessageDetail message={message} position="left" />
-                        <SystemMessageIcon className="systemIcon" />
+                        <SystemMessageIcon className="systemIcon" style={isCallStarted ? { color: "var(--accent, #5865f2)" } : undefined} />
                     </MessageInfo>
                 )}
                 <SystemContent>{children}</SystemContent>

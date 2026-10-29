@@ -8,19 +8,20 @@ import {
     PhoneCall,
 } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
-import { Link } from "react-router-dom";
+import { useHistory } from "react-router-dom";
 import styled from "styled-components/macro";
 
 import { voiceState } from "../../../lib/vortex/VoiceState";
 
 import { useClient } from "../../../controllers/client/ClientController";
 import UserIcon from "../../common/user/UserIcon";
+import { isTouchscreenDevice } from "../../../lib/isTouchscreenDevice";
 
 const PanelContainer = styled.div`
     display: flex;
     flex-direction: column;
     background: var(--primary-background);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     user-select: none;
     flex-shrink: 0;
 `;
@@ -139,6 +140,8 @@ const ActionButton = styled.button<{ active?: boolean; danger?: boolean }>`
 `;
 
 export const StatusPanel = observer(() => {
+    if (isTouchscreenDevice) return null;
+    const history = useHistory();
     const client = useClient();
     const user = client.user;
 
@@ -232,11 +235,11 @@ export const StatusPanel = observer(() => {
                             <VolumeFull size={18} />
                         )}
                     </ActionButton>
-                    <Link to="/settings" style={{ display: "flex" }}>
-                        <ActionButton title="Настройки пользователя">
-                            <Cog size={18} />
-                        </ActionButton>
-                    </Link>
+                    <ActionButton
+                        title="Настройки пользователя"
+                        onClick={() => history.push("/settings")}>
+                        <Cog size={18} />
+                    </ActionButton>
                 </div>
             </UserBar>
         </PanelContainer>

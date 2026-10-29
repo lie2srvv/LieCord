@@ -1,4 +1,10 @@
 sentry.dsn=
-sentry.upload_mappings=true
-build.debug.app_name=
-build.flavour_id=ZZUU
+sentry.upload_mappings=false
+build.debug.app_name=LieCord
+build.flavour_id=LIECORD
+
+# Optional Release Signing Configuration
+# signing.keystore_path=liecord-release.keystore
+# signing.keystore_password=
+# signing.key_alias=liecord
+# signing.key_password=

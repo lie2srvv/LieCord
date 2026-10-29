@@ -4,6 +4,10 @@ export const history = createBrowserHistory({
     basename: import.meta.env.BASE_URL,
 });
 
+if (typeof window !== "undefined") {
+    (window as any).appHistory = history;
+}
+
 export const routeInformation = {
     getServer: () =>
         /server\/([0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26})/.exec(

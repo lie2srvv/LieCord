@@ -1,4 +1,3 @@
-import { Cog } from "@styled-icons/boxicons-solid";
 import React from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { Virtuoso } from "react-virtuoso";
@@ -169,17 +168,7 @@ export function ServerList(props: Props & ParentProps & FooterProps) {
             <Shadow>
                 <div />
             </Shadow>
-            <ItemContainer head>
-                <Link to="/settings">
-                    <Tooltip i18n="app.settings.title" div right>
-                        <Avatar
-                            size={42}
-                            fallback={<Cog size={18} />}
-                            interactive
-                        />
-                    </Tooltip>
-                </Link>
-            </ItemContainer>
+
         </Base>
     );
 }

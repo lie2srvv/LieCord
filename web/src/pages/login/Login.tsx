@@ -23,9 +23,7 @@ export default observer(() => {
 
     return (
         <>
-            {window.isNative && !window.native.getConfig().frame && (
-                <Titlebar overlay />
-            )}
+            <Titlebar overlay />
             {alert && (
                 <StatusBar>
                     <div className="title">{alert.text}</div>

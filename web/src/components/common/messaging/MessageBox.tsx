@@ -1,13 +1,14 @@
+import { Check } from "@styled-icons/boxicons-regular";
 import { HappyBeaming, Send, ShieldX } from "@styled-icons/boxicons-solid";
 import Axios, { CancelTokenSource } from "axios";
 import { observer } from "mobx-react-lite";
-import { Channel } from "revolt.js";
+import { Channel, Message } from "revolt.js";
 import styled, { css } from "styled-components/macro";
 import { ulid } from "ulid";
 
 import { Text } from "preact-i18n";
 import { memo } from "preact/compat";
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { IconButton, Picker } from "@revoltchat/ui";
 
@@ -44,6 +45,7 @@ import { RenderEmoji } from "../../markdown/plugins/emoji";
 import AutoComplete, { useAutoComplete } from "../AutoComplete";
 import { PermissionTooltip } from "../Tooltip";
 import FilePreview from "./bars/FilePreview";
+import EditBar from "./bars/EditBar";
 import ReplyBar from "./bars/ReplyBar";
 
 type Props = {
@@ -67,6 +69,7 @@ const Base = styled.div`
     display: flex;
     align-items: flex-start;
     background: var(--message-box);
+    padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--android-bottom-inset, 0px)) + 6px);
 
     textarea {
         font-size: var(--text-size);
@@ -137,6 +140,7 @@ const FileAction = styled.div`
 
 const FloatingLayer = styled.div`
     position: relative;
+    z-index: 100;
 `;
 
 const ThisCodeWillBeReplacedAnywaysSoIMightAsWellJustDoItThisWay__Padding = styled.div`
@@ -221,6 +225,8 @@ export default observer(({ channel }: Props) => {
     });
     const [typing, setTyping] = useState<boolean | number>(false);
     const [replies, setReplies] = useState<Reply[]>([]);
+    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+    const previousDraftRef = useRef<string | undefined>(undefined);
     const [picker, setPicker] = useState(false);
     const client = useClient();
     const translate = useTranslation();
@@ -316,6 +322,100 @@ export default observer(({ channel }: Props) => {
         );
     }, [state.draft, channel._id, setMessage]);
 
+    // Reset editing when switching channels
+    useEffect(() => {
+        setEditingMessage(null);
+        previousDraftRef.current = undefined;
+    }, [channel._id]);
+
+    const cancelEditing = useCallback(
+        (restoreDraft = true) => {
+            setEditingMessage(null);
+            if (restoreDraft && previousDraftRef.current !== undefined) {
+                setMessage(previousDraftRef.current);
+            } else {
+                setMessage("");
+            }
+            previousDraftRef.current = undefined;
+        },
+        [setMessage],
+    );
+
+    const startEditing = useCallback(
+        (target: Message | string) => {
+            let msg: Message | undefined;
+            if (typeof target === "string") {
+                msg = channel.client.messages.get(target);
+            } else {
+                msg = target;
+            }
+            if (!msg) return;
+
+            // Save current draft before entering edit mode
+            if (!editingMessage) {
+                previousDraftRef.current = state.draft.get(channel._id)?.content;
+            }
+
+            setEditingMessage(msg);
+            setMessage(msg.content ?? "");
+
+            setTimeout(() => {
+                internalEmit("TextArea", "focus", "message");
+                const el = document.getElementById(
+                    "message",
+                ) as HTMLTextAreaElement | null;
+                if (el) {
+                    el.focus();
+                    const len = el.value.length;
+                    el.setSelectionRange(len, len);
+                }
+            }, 50);
+        },
+        [channel, editingMessage, setMessage, state.draft],
+    );
+
+    useEffect(() => {
+        const unsubEdit = internalSubscribe(
+            "MessageBox",
+            "edit",
+            (target: unknown) => {
+                startEditing(target as Message | string);
+            },
+        );
+
+        const unsubEditMsg = internalSubscribe(
+            "MessageRenderer",
+            "edit_message",
+            (id: unknown) => {
+                startEditing(id as string);
+            },
+        );
+
+        const unsubEditLast = internalSubscribe(
+            "MessageRenderer",
+            "edit_last",
+            () => {
+                if (renderer.state === "RENDER") {
+                    for (let i = renderer.messages.length - 1; i >= 0; i--) {
+                        if (
+                            renderer.messages[i].author_id ===
+                            client.user?._id
+                        ) {
+                            startEditing(renderer.messages[i]);
+                            return;
+                        }
+                    }
+                }
+            },
+        );
+
+        return () => {
+            unsubEdit();
+            unsubEditMsg();
+            unsubEditLast();
+        };
+    }, [client.user?._id, renderer.messages, renderer.state, startEditing]);
+
     /**
      * Trigger send message.
      */
@@ -323,7 +423,32 @@ export default observer(({ channel }: Props) => {
         if (uploadState.type === "uploading" || uploadState.type === "sending")
             return;
 
-        const content = state.draft.get(channel._id)?.content?.trim() ?? "";
+        let content = state.draft.get(channel._id)?.content?.trim() ?? "";
+        content = content.replace(/^[​⁠]+/, "");
+        if (editingMessage) {
+            const target = editingMessage;
+            cancelEditing(false);
+
+            if (content.length === 0) {
+                modalController.push({
+                    type: "delete_message",
+                    target,
+                });
+                return;
+            }
+
+            if (content !== target.content) {
+                try {
+                    await target.edit({
+                        content: content.slice(0, 2000),
+                    });
+                } catch (err) {
+                    console.error("Failed to edit message:", err);
+                }
+            }
+            return;
+        }
+
         if (uploadState.type !== "none") return sendFile(content);
         if (content.length === 0) return;
 
@@ -605,11 +730,18 @@ export default observer(({ channel }: Props) => {
                     }
                 }}
             />
-            <ReplyBar
-                channel={channel}
-                replies={replies}
-                setReplies={setReplies}
-            />
+            {editingMessage ? (
+                <EditBar
+                    message={editingMessage}
+                    onCancel={() => cancelEditing(true)}
+                />
+            ) : (
+                <ReplyBar
+                    channel={channel}
+                    replies={replies}
+                    setReplies={setReplies}
+                />
+            )}
             <FloatingLayer>
                 {picker && (
                     <HackAlertThisFileWillBeReplaced
@@ -686,7 +818,8 @@ export default observer(({ channel }: Props) => {
 
                         if (
                             e.key === "ArrowUp" &&
-                            !state.draft.has(channel._id)
+                            !state.draft.has(channel._id) &&
+                            !editingMessage
                         ) {
                             e.preventDefault();
                             internalEmit("MessageRenderer", "edit_last");
@@ -705,6 +838,11 @@ export default observer(({ channel }: Props) => {
                         }
 
                         if (e.key === "Escape") {
+                            if (editingMessage) {
+                                e.preventDefault();
+                                cancelEditing(true);
+                                return;
+                            }
                             if (replies.length > 0) {
                                 setReplies(replies.slice(0, -1));
                             } else if (
@@ -747,20 +885,29 @@ export default observer(({ channel }: Props) => {
                     onBlur={onBlur}
                 />
                 <Action>
-                    <IconButton onClick={() => setPicker(!picker)}>
+                    <IconButton
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setPicker(!picker);
+                        }}>
                         <HappyBeaming size={24} />
                     </IconButton>
                 </Action>
                 <Action>
                     <IconButton
                         className={
-                            state.settings.get("appearance:show_send_button")
+                            state.settings.get("appearance:show_send_button") ||
+                            editingMessage
                                 ? ""
                                 : "mobile"
                         }
                         onClick={send}
                         onMouseDown={(e) => e.preventDefault()}>
-                        <Send size={20} />
+                        {editingMessage ? (
+                            <Check size={22} />
+                        ) : (
+                            <Send size={20} />
+                        )}
                     </IconButton>
                 </Action>
             </Base>

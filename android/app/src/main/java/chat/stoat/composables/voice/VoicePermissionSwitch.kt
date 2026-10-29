@@ -32,6 +32,7 @@ import androidx.core.net.toUri
 import chat.stoat.R
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
 
@@ -40,20 +41,23 @@ import com.google.accompanist.permissions.shouldShowRationale
 fun VoicePermissionSwitch(onCancel: () -> Unit, onPermissionGranted: @Composable () -> Unit) {
     val context = LocalContext.current
 
-    var permissionState = rememberMultiplePermissionsState(
+    val permissionState = rememberMultiplePermissionsState(
         listOf(
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.CAMERA
         ),
         onPermissionsResult = {}
     )
-    var fullyRevoked = permissionState
-        .revokedPermissions
-        .any { it.status is PermissionStatus.Denied && !it.status.shouldShowRationale }
 
-    if (permissionState.allPermissionsGranted) {
+    val micPermission = permissionState.permissions.find { it.permission == Manifest.permission.RECORD_AUDIO }
+    val micGranted = micPermission?.status?.isGranted == true
+
+    val fullyRevoked = micPermission?.status is PermissionStatus.Denied &&
+            !(micPermission.status as PermissionStatus.Denied).shouldShowRationale
+
+    if (micGranted || permissionState.allPermissionsGranted) {
         onPermissionGranted()
-    } else if (permissionState.shouldShowRationale || fullyRevoked) {
+    } else if (micPermission?.status?.shouldShowRationale == true || fullyRevoked) {
         ModalBottomSheet(
             onDismissRequest = onCancel,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

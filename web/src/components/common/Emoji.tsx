@@ -43,14 +43,8 @@ function toCodePoint(rune: string) {
 }
 
 export function parseEmoji(emoji: string) {
-    // if (emoji.startsWith("custom:")) {
-    //     return `https://dl.insrt.uk/projects/revolt/emotes/${emoji.substring(
-    //         7,
-    //     )}`;
-    // }
-
     const codepoint = toCodePoint(emoji);
-    return `https://static.revolt.chat/emoji/${EMOJI_PACK}/${codepoint}.svg?rev=${REVISION}`;
+    return `/emoji/${EMOJI_PACK}/${codepoint}.svg?rev=${REVISION}`;
 }
 
 export default function Emoji({
@@ -63,19 +57,18 @@ export default function Emoji({
     return (
         <img
             alt={emoji}
-            loading="lazy"
-            className="emoji"
             draggable={false}
+            loading="lazy"
             src={parseEmoji(emoji)}
-            style={
-                size ? { width: `${size}px`, height: `${size}px` } : undefined
-            }
+            width={size}
+            height={size}
         />
     );
 }
 
-export function generateEmoji(emoji: string) {
-    return `<img loading="lazy" class="emoji" draggable="false" alt="${emoji}" src="${parseEmoji(
-        emoji,
-    )}" />`;
+export function parseEmojiCodepoint(emoji: string) {
+    if (emoji in emojiDictionary) {
+        return toCodePoint(emojiDictionary[emoji as keyof typeof emojiDictionary]);
+    }
+    return toCodePoint(emoji);
 }

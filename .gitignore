@@ -12,6 +12,7 @@ web/node_modules/
 
 # Desktop build
 desktop/node_modules/
+desktop/dist/
 desktop/out/
 desktop/.vite/
 build_artifacts/
@@ -26,9 +27,22 @@ android/.idea/
 android/*.iml
 android/app/*.iml
 *.apk
+*.keystore
+*.jks
+
+# Internal Operations & Admin tools
+cli_clean.py
+liecord_ops/
+server/web_dist/
+
+# Agent & AI skills
+.agents/
+skills/
 
 # Environment & Temp
 .env
+.env.*
+!.env.example
 *.log
 *.pyc
 __pycache__/

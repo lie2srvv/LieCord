@@ -1,3 +1,4 @@
+import { isCallStartedMessage } from "../../../lib/callMessage";
 /* eslint-disable react-hooks/rules-of-hooks */
 import { X } from "@styled-icons/boxicons-regular";
 import dayjs from "dayjs";
@@ -22,7 +23,6 @@ import { SystemMessage } from "../../../components/common/messaging/SystemMessag
 import { useClient } from "../../../controllers/client/ClientController";
 import RequiresOnline from "../../../controllers/client/jsx/RequiresOnline";
 import ConversationStart from "./ConversationStart";
-import MessageEditor from "./MessageEditor";
 
 interface Props {
     last_id?: string;
@@ -46,35 +46,7 @@ export default observer(({ last_id, renderer, highlight }: Props) => {
     const userId = client.user!._id;
     const queue = useApplicationState().queue;
 
-    const [editing, setEditing] = useState<string | undefined>(undefined);
-    const stopEditing = () => {
-        setEditing(undefined);
-        internalEmit("TextArea", "focus", "message");
-    };
-
-    useEffect(() => {
-        function editLast() {
-            if (renderer.state !== "RENDER") return;
-            for (let i = renderer.messages.length - 1; i >= 0; i--) {
-                if (renderer.messages[i].author_id === userId) {
-                    setEditing(renderer.messages[i]._id);
-                    internalEmit("MessageArea", "jump_to_bottom");
-                    return;
-                }
-            }
-        }
-
-        const subs = [
-            internalSubscribe("MessageRenderer", "edit_last", editLast),
-            internalSubscribe(
-                "MessageRenderer",
-                "edit_message",
-                setEditing as (...args: unknown[]) => void,
-            ),
-        ];
-
-        return () => subs.forEach((unsub) => unsub());
-    }, [renderer.messages, renderer.state, userId]);
+    // Inline message editing is moved to MessageBox (Telegram-style EditBar)
 
     const render: Children[] = [];
     let previous: MessageI | undefined;
@@ -163,7 +135,7 @@ export default observer(({ last_id, renderer, highlight }: Props) => {
             );
         }
 
-        if (message.author_id === "00000000000000000000000000") {
+        if (message.author_id === "00000000000000000000000000" || isCallStartedMessage(message.content)) {
             render.push(
                 <SystemMessage
                     key={message._id}
@@ -182,14 +154,6 @@ export default observer(({ last_id, renderer, highlight }: Props) => {
                     message={message}
                     key={message._id}
                     head={head}
-                    content={
-                        editing === message._id ? (
-                            <MessageEditor
-                                message={message}
-                                finish={stopEditing}
-                            />
-                        ) : undefined
-                    }
                     attachContext
                     highlight={highlight === message._id}
                 />,

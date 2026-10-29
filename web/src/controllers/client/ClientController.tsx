@@ -60,9 +60,17 @@ class ClientController {
     }
 
     @action pickNextSession() {
-        this.switchAccount(
-            this.current ?? this.sessions.keys().next().value ?? null,
-        );
+        const saved =
+            typeof localStorage !== "undefined"
+                ? localStorage.getItem("liecord_active_account")
+                : null;
+        const target =
+            saved && this.sessions.has(saved)
+                ? saved
+                : (this.current && this.sessions.has(this.current)
+                      ? this.current
+                      : (this.sessions.keys().next().value ?? null));
+        this.switchAccount(target);
     }
 
     /**
@@ -147,7 +155,9 @@ class ClientController {
 
         const session = new Session();
         this.sessions.set(user_id, session);
-        this.pickNextSession();
+        if (knowledge === "new") {
+            this.switchAccount(user_id);
+        }
 
         session
             .emit({
@@ -161,8 +171,10 @@ class ClientController {
                 const error = takeError(err);
                 if (error === "Unauthorized") {
                     this.sessions.delete(user_id);
-                    this.current = null;
-                    this.pickNextSession();
+                    if (this.current === user_id) {
+                        this.current = null;
+                        this.pickNextSession();
+                    }
                     state.auth.removeSession(user_id);
                     modalController.push({ type: "signed_out" });
                     session.destroy();
@@ -184,12 +196,19 @@ class ClientController {
 
         // Generate a friendly name for this browser
         let friendly_name;
-        if (browser) {
+        const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+        const isAndroidApp =
+            ua.includes("LieCordMobile") ||
+            (typeof window !== "undefined" && ((window as any).isLieCordApp || (window as any).LieCordNative));
+
+        if (isAndroidApp || (browser && browser.name === "chromium-webview")) {
+            friendly_name = "LieCord app";
+        } else if (browser) {
             let { name } = browser;
             const { os } = browser;
             let isiPad;
             if (window.isNative) {
-                friendly_name = `Revolt Desktop on ${os}`;
+                friendly_name = `LieCord Desktop on ${os}`;
             } else {
                 if (name === "ios") {
                     name = "safari";
@@ -288,8 +307,15 @@ class ClientController {
      * Switch to another user session
      * @param user_id Target User ID
      */
-    @action switchAccount(user_id: string) {
+    @action switchAccount(user_id: string | null) {
         this.current = user_id;
+        if (typeof localStorage !== "undefined") {
+            if (user_id) {
+                localStorage.setItem("liecord_active_account", user_id);
+            } else {
+                localStorage.removeItem("liecord_active_account");
+            }
+        }
 
         // This will allow account switching to work more seamlessly,
         // maybe it'll be properly / fully implemented at some point.

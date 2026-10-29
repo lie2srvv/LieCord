@@ -4,14 +4,22 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Up to Android 10, we need the following to take photos from the camera. -->
     <uses-permission
@@ -58,17 +66,45 @@
             android:resource="@color/primary" />
 
         <service
-            android:name=".c2dm.HandlerService"
+            android:name=".services.OngoingCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone" />
+
+        <service
+            android:name=".services.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
+            android:name=".services.LieCordPushService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".c2dm.CallActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="chat.stoat.ACTION_DECLINE_CALL" />
+                <action android:name="chat.stoat.ACTION_ACCEPT_CALL" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".services.LieCordBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".c2dm.FirebaseMessagingReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-
-        <service
-            android:name=".services.OngoingCallService"
-            android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone" />
 
         <receiver
             android:name=".c2dm.ReplyReceiver"
@@ -78,102 +114,76 @@
             android:name=".c2dm.MarkAsReadReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".c2dm.ClearNotificationReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".activities.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="true"
-            android:configChanges="orientation|screenSize|colorMode"
-            android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Stoat">
+            android:theme="@style/Theme.Stoat.Splash"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="https" />
-                <data android:host="cord.lie2srvv.com" />
-                <data android:pathPattern="/channel/.........................." />
-                <data android:pathPattern="/channel/........................../.........................." />
-                <data android:pathPattern="/server/.........................." />
-                <data android:pathPattern="/server/........................../channel/.........................." />
-                <data android:pathPattern="/server/........................../channel/........................../.........................." />
+                <data
+                    android:host="app.revolt.chat"
+                    android:scheme="https" />
+                <data
+                    android:host="revolt.chat"
+                    android:scheme="https" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".activities.InviteActivity"
-            android:theme="@style/Theme.Stoat"
-            android:exported="true">
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="https" />
-                <data android:host="cord.lie2srvv.com" />
-                <data android:pathPrefix="/invite/" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".activities.ShareTargetActivity"
-            android:theme="@style/Theme.Stoat"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-        </activity>
-
         <activity
             android:name=".activities.media.ImageViewActivity"
-            android:theme="@style/Theme.Stoat" />
-
+            android:exported="false"
+            android:theme="@style/Theme.Stoat.ImageView" />
         <activity
             android:name=".activities.media.VideoViewActivity"
-            android:configChanges="orientation|screenSize"
-            android:theme="@style/Theme.Stoat" />
-
+            android:exported="false"
+            android:theme="@style/Theme.Stoat.ImageView" />
         <activity
             android:name=".activities.voice.IncomingActivity"
-            android:configChanges="orientation|screenSize"
-            android:theme="@style/Theme.Stoat" />
-
-        <!-- Backport photo picker via Google Play Services -->
-        <service
-            android:name="com.google.android.gms.metadata.ModuleDependencies"
-            android:enabled="false"
             android:exported="false"
-            tools:ignore="MissingClass">
+            android:launchMode="singleTop"
+            android:showOnLockScreen="true"
+            android:theme="@style/Theme.Stoat.Splash" />
+        <activity
+            android:name=".activities.ShareTargetActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Stoat.Transparent">
             <intent-filter>
-                <action android:name="com.google.android.gms.metadata.MODULE_DEPENDENCIES" />
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="*/*" />
             </intent-filter>
-            <meta-data
-                android:name="photopicker_activity:0:required"
-                android:value="" />
-        </service>
+        </activity>
+        <activity
+            android:name=".activities.InviteActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Stoat.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
 
-        <service
-            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
-            android:enabled="false"
-            android:exported="false">
-            <meta-data
-                android:name="autoStoreLocales"
-                android:value="true" />
-        </service>
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
 
+                <data
+                    android:host="rvlt.gg"
+                    android:scheme="https" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

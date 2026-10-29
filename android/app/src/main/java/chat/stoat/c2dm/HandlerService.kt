@@ -13,6 +13,8 @@ import logcat.logcat
 
 object NotificationID {
     const val NEW_MESSAGE = 0
+    const val INCOMING_CALL = 1001
+    const val FOREGROUND_SERVICE = 1002
 }
 
 class HandlerService : FirebaseMessagingService() {

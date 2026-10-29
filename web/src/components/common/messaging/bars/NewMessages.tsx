@@ -12,6 +12,7 @@ import { getRenderer } from "../../../../lib/renderer/Singleton";
 
 import { dayjs } from "../../../../context/Locale";
 
+import { voiceState } from "../../../../lib/vortex/VoiceState";
 import { Bar } from "./JumpToBottom";
 
 export default observer(
@@ -33,7 +34,16 @@ export default observer(
         useEffect(() => {
             if (last_id) {
                 try {
-                    setTimeAgo(dayjs(decodeTime(last_id)).fromNow());
+                    const diffSec = Math.abs(
+                        dayjs().diff(dayjs(decodeTime(last_id)), "second")
+                    );
+                    if (diffSec < 60) {
+                        setTimeAgo(
+                            dayjs.locale() === "ru" ? "только что" : "just now"
+                        );
+                    } else {
+                        setTimeAgo(dayjs(decodeTime(last_id)).fromNow());
+                    }
                 } catch (err) {}
             }
         }, [last_id]);
@@ -44,8 +54,17 @@ export default observer(
         if (!last_id) return null;
         if (hidden) return null;
 
+        const inCall = voiceState.roomId === channel._id;
+        const hasCallBanner =
+            voiceState.getChannelParticipants(channel._id).length > 0 && !inCall;
+        const hasTopElement = inCall || hasCallBanner;
+
         return (
-            <Bar position="top" accent>
+            <Bar
+                position="top"
+                hasTopElement={hasTopElement}
+                inCall={inCall}
+                accent>
                 <div
                     onClick={() => {
                         setHidden(true);

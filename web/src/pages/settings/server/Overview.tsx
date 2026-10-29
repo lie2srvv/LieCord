@@ -58,7 +58,7 @@ export const Overview = observer(({ server }: Props) => {
                     style="icon"
                     fileType="icons"
                     behaviour="upload"
-                    maxFileSize={2_500_000}
+                    maxFileSize={25_000_000}
                     onUpload={(icon) => server.edit({ icon }).then(noop)}
                     previewURL={server.generateIconURL({ max_side: 256 }, true)}
                     remove={() => server.edit({ remove: ["Icon"] }).then(noop)}
@@ -106,7 +106,7 @@ export const Overview = observer(({ server }: Props) => {
                 style="banner"
                 fileType="banners"
                 behaviour="upload"
-                maxFileSize={6_000_000}
+                maxFileSize={25_000_000}
                 onUpload={(banner) => server.edit({ banner }).then(noop)}
                 previewURL={server.generateBannerURL({ width: 1000 }, true)}
                 remove={() => server.edit({ remove: ["Banner"] }).then(noop)}

@@ -19,14 +19,27 @@ export default styled.div`
 
 export const GenericSidebarBase = styled.div<{
     mobilePadding?: boolean;
+    borderSide?: "left" | "right" | "none";
 }>`
     height: 100%;
-    width: 232px;
+    width: 234px;
+    flex-grow: 1;
     display: flex;
     flex-shrink: 0;
     flex-direction: column;
-    /*border-end-start-radius: 8px;*/
     background: var(--secondary-background);
+    box-sizing: border-box;
+
+    ${(props) =>
+        props.borderSide === "left"
+            ? css`
+                  border-left: 1px solid rgba(255, 255, 255, 0.1);
+              `
+            : props.borderSide === "none"
+            ? css``
+            : css`
+                  border-right: 1px solid rgba(255, 255, 255, 0.1);
+              `}
 
     /*> :nth-child(1) {
         //border-end-start-radius: 8px;

@@ -29,10 +29,11 @@
 .login {
     width: 100%;
     min-height: 100vh;
-    padding: 30px 24px;
+    min-height: 100dvh;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 28px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     user-select: none;
     position: relative;
@@ -70,12 +71,14 @@
     }
 
     .topBar {
-        position: absolute;
-        top: 24px;
-        right: 28px;
-        z-index: 10;
+        width: 100%;
+        max-width: 440px;
         display: flex;
+        justify-content: flex-end;
         align-items: center;
+        z-index: 10;
+        margin-bottom: 16px;
+        flex-shrink: 0;
 
         select {
             padding: 6px 14px;
@@ -109,7 +112,12 @@
         gap: 20px;
         width: 100%;
         max-width: 440px;
-        margin: auto 0;
+        margin: 20px auto auto;
+
+        @media (max-width: 480px) {
+            margin-top: 24px;
+            gap: 16px;
+        }
 
         .brandHeader {
             display: flex;
@@ -118,20 +126,24 @@
             gap: 14px;
 
             .brandLogo {
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 50%;
                 object-fit: contain;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
             }
 
             .brandTitle {
-                font-size: 42px;
+                font-size: 38px;
                 font-weight: 800;
                 letter-spacing: -0.5px;
                 color: #ffffff;
                 line-height: 1;
                 text-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+
+                @media (max-width: 480px) {
+                    font-size: 30px;
+                }
             }
         }
 
@@ -149,6 +161,10 @@
             padding: 34px 30px;
             border-radius: 18px;
             box-sizing: border-box;
+
+            @media (max-width: 480px) {
+                padding: 24px 18px;
+            }
 
             .formModal {
                 display: flex;
@@ -337,41 +353,5 @@
         border-radius: 12px;
         font-weight: 700;
         margin-bottom: 8px;
-    }
-
-    a {
-        font-size: 13px;
-        color: var(--accent);
-    }
-}
-
-@media only screen and (max-width: 768px) {
-    .login {
-        padding: 20px 16px;
-
-        .topBar {
-            top: 16px;
-            right: 16px;
-        }
-
-        .centerContainer {
-            gap: 16px;
-
-            .brandHeader {
-                .brandLogo {
-                    width: 44px;
-                    height: 44px;
-                }
-
-                .brandTitle {
-                    font-size: 34px;
-                }
-            }
-
-            .form {
-                padding: 24px 20px;
-                border-radius: 16px;
-            }
-        }
     }
 }

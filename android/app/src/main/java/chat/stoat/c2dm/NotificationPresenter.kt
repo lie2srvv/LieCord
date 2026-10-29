@@ -30,6 +30,8 @@ import chat.stoat.activities.MainActivity
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.ULID
 import chat.stoat.api.routes.channel.fetchSingleChannel
+import chat.stoat.api.routes.server.fetchMember
+import chat.stoat.api.routes.user.fetchUser
 import chat.stoat.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
 import chat.stoat.core.model.data.STOAT_FILES
 import chat.stoat.core.model.schemas.Message
@@ -103,12 +105,28 @@ object NotificationPresenter {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val authorUser = StoatAPI.userCache[authorId]
+                var authorUser = StoatAPI.userCache[authorId]
+                if (authorUser == null) {
+                    authorUser = runCatching { fetchUser(authorId) }.getOrNull()
+                }
+
+                val db = Database(SqlStorage.driver)
+                val dbChannel = db.channelQueries.findById(channelId).executeAsOneOrNull()
+                val serverId = dbChannel?.server
+
+                val serverMember = if (serverId != null) {
+                    StoatAPI.members.getMember(serverId, authorId)
+                        ?: runCatching { fetchMember(serverId, authorId) }.getOrNull()
+                } else null
+
                 val authorName = message.masquerade?.name
+                    ?: serverMember?.nickname
+                    ?: authorUser?.displayName
                     ?: authorUser?.username
                     ?: "User"
 
                 val authorAvatarUrl = message.masquerade?.avatar
+                    ?: serverMember?.avatar?.let { "$STOAT_FILES/avatars/${it.id}" }
                     ?: authorUser?.avatar?.let { "$STOAT_FILES/avatars/${it.id}" }
 
                 val body = message.content?.takeIf { it.isNotBlank() }
@@ -260,10 +278,9 @@ object NotificationPresenter {
 
         ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
 
-        val remoteInput = RemoteInput.Builder("content").run {
-            setLabel(context.getString(R.string.message_context_sheet_actions_reply))
-            build()
-        }
+        val remoteInput = RemoteInput.Builder("content")
+            .setLabel(context.getString(R.string.message_context_sheet_actions_reply))
+            .build()
 
         val replyIntent = Intent(context, ReplyReceiver::class.java).apply {
             putExtra("channelId", channelId)
@@ -319,14 +336,19 @@ object NotificationPresenter {
             .setConversationTitle(channelName)
             .addMessage(body, messageTimestamp, author)
 
+        val isDirectMessage = dbChannel?.channelType == "DirectMessage"
+        val headerTitle = if (isDirectMessage) authorName else channelName
+        val headerLargeIcon = if (isDirectMessage) authorBitmap else conversationBitmap
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification_monochrome)
             .setColor(0xFF3C639A.toInt())
-            .setContentTitle(authorName)
+            .setContentTitle(headerTitle)
             .setContentText(body)
             .setContentIntent(contentIntent)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setStyle(messagingStyle)
+            .setLargeIcon(headerLargeIcon)
             .addAction(replyAction)
             .addAction(markAsReadAction)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

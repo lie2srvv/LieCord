@@ -36,6 +36,8 @@ const Navbar = styled.div`
     font-weight: 600;
     flex-shrink: 0;
     height: 48px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
 
     ${() =>
         isTouchscreenDevice &&

@@ -74,12 +74,19 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("liecord-release.keystore")
-            storePassword = "***"
-            keyAlias = "liecord"
-            keyPassword = "***"
-            isV1SigningEnabled = true
-            isV2SigningEnabled = true
+            val keyStorePath = buildproperty("signing.keystore_path", "LIECORD_KEYSTORE_PATH") ?: "liecord-release.keystore"
+            val keyStorePassword = buildproperty("signing.keystore_password", "LIECORD_KEYSTORE_PASSWORD")
+            val keyAliasName = buildproperty("signing.key_alias", "LIECORD_KEY_ALIAS") ?: "liecord"
+            val keyPass = buildproperty("signing.key_password", "LIECORD_KEY_PASSWORD")
+
+            if (file(keyStorePath).exists() && !keyStorePassword.isNullOrBlank()) {
+                storeFile = file(keyStorePath)
+                storePassword = keyStorePassword
+                keyAlias = keyAliasName
+                keyPassword = keyPass ?: keyStorePassword
+                isV1SigningEnabled = true
+                isV2SigningEnabled = true
+            }
         }
     }
 

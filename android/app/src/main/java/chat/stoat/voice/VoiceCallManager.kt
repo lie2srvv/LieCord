@@ -1,9 +1,12 @@
 package chat.stoat.voice
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.app.ActivityCompat
 import chat.stoat.R
 import chat.stoat.StoatApplication
 import chat.stoat.api.StoatAPI
@@ -20,7 +23,6 @@ import com.twilio.audioswitch.AudioDevice
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
-import io.ktor.http.isSuccess
 import io.livekit.android.LiveKit
 import io.livekit.android.RoomOptions
 import io.livekit.android.events.RoomEvent
@@ -30,6 +32,7 @@ import io.livekit.android.room.track.RemoteAudioTrack
 import io.livekit.android.room.track.RemoteTrackPublication
 import io.livekit.android.room.track.ScreenSharePresets
 import io.livekit.android.room.track.Track
+import io.livekit.android.room.track.TrackPublication
 import io.livekit.android.util.flow
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -74,6 +77,10 @@ object VoiceCallManager {
     var watchingUserId: String? by mutableStateOf<String?>(null)
         private set
 
+    private fun isScreenShareAudio(pub: TrackPublication): Boolean {
+        return pub.source == Track.Source.SCREEN_SHARE_AUDIO || pub.name == "screen_audio"
+    }
+
     fun watchStream(userId: String) {
         watchingUserId = userId
         updateScreenShareSubscriptions()
@@ -106,7 +113,7 @@ object VoiceCallManager {
                 }
             }
             participant.audioTrackPublications.forEach { (pub, track) ->
-                if (pub.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                if (isScreenShareAudio(pub)) {
                     (pub as? RemoteTrackPublication)?.setSubscribed(true)
                     val vol = if (isTarget && !isDeafened) 1.0 else 0.0
                     (track as? RemoteAudioTrack)?.setVolume(vol)
@@ -166,7 +173,15 @@ object VoiceCallManager {
             val connection = fetchVoiceToken(channelId) ?: return@launch
             try {
                 newRoom.connect(connection.url, connection.token)
-                newRoom.localParticipant.setMicrophoneEnabled(true)
+                val hasRecordAudio = ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+                if (hasRecordAudio) {
+                    runCatching {
+                        newRoom.localParticipant.setMicrophoneEnabled(true)
+                    }
+                }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "Could not connect to LiveKit room\n" + e.asLog() }
                 errorResource = R.string.voice_error_generic
@@ -239,7 +254,7 @@ object VoiceCallManager {
     private fun applyDeafenState(room: Room) {
         room.remoteParticipants.values.forEach { participant ->
             participant.audioTrackPublications.forEach { (pub, track) ->
-                val isScreenAudio = pub.source == Track.Source.SCREEN_SHARE_AUDIO
+                val isScreenAudio = isScreenShareAudio(pub)
                 val isWatchingScreen = participant.identity?.value == watchingUserId
                 val volume = when {
                     isDeafened -> 0.0
@@ -286,7 +301,7 @@ object VoiceCallManager {
                         if (!shouldSubscribe) {
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(false)
                         }
-                    } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                    } else if (isScreenShareAudio(event.publication)) {
                         (event.publication as? RemoteTrackPublication)?.setSubscribed(true)
                         val isWatching = event.participant.identity?.value == watchingUserId
                         val vol = if (isWatching && !isDeafened) 1.0 else 0.0
@@ -308,7 +323,7 @@ object VoiceCallManager {
                             soundPlayer?.play(VoiceSound.STREAM_START)
                             val shouldSubscribe = event.participant.identity?.value == watchingUserId
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(shouldSubscribe)
-                        } else if (event.publication.source == Track.Source.SCREEN_SHARE_AUDIO) {
+                        } else if (isScreenShareAudio(event.publication)) {
                             (event.publication as? RemoteTrackPublication)?.setSubscribed(true)
                         }
                     }
@@ -347,8 +362,11 @@ object VoiceCallManager {
         }
     }
 
-    private suspend fun fastestNode(nodes: List<LiveKitNode>): LiveKitNode? =
-        withTimeoutOrNull(5.seconds) {
+    private suspend fun fastestNode(nodes: List<LiveKitNode>): LiveKitNode? {
+        if (nodes.isEmpty()) return null
+        if (nodes.size == 1) return nodes[0]
+
+        return withTimeoutOrNull(2.seconds) {
             try {
                 coroutineScope {
                     val winner = CompletableDeferred<LiveKitNode>()
@@ -358,7 +376,9 @@ object VoiceCallManager {
                                 val probeUrl = node.publicUrl
                                     .replaceFirst("wss://", "https://")
                                     .replaceFirst("ws://", "http://")
-                                if (probeClient.get(probeUrl).status.isSuccess()) {
+                                val status = probeClient.get(probeUrl).status.value
+                                // HTTP 200..499 indicates the server is reached and responding
+                                if (status in 200..499) {
                                     winner.complete(node)
                                 }
                             } catch (_: Exception) {
@@ -367,9 +387,9 @@ object VoiceCallManager {
                     }
                     launch {
                         probes.joinAll()
-                        winner.completeExceptionally(
-                            IllegalStateException("No LiveKit node reachable")
-                        )
+                        if (!winner.isCompleted) {
+                            winner.complete(nodes.first())
+                        }
                     }
                     try {
                         winner.await()
@@ -378,9 +398,10 @@ object VoiceCallManager {
                     }
                 }
             } catch (e: Exception) {
-                null
+                nodes.firstOrNull()
             }
-        }
+        } ?: nodes.firstOrNull()
+    }
 
     private suspend fun fetchVoiceToken(channelId: String): JoinCallResponse? {
         val root: Root
@@ -408,15 +429,24 @@ object VoiceCallManager {
             return null
         }
 
-        val node = fastestNode(lk.nodes)
-        if (node == null) {
-            logcat(LogPriority.ERROR) { "No LiveKit node responded to probing!" }
+        val primaryNode = fastestNode(lk.nodes) ?: lk.nodes.firstOrNull()
+        if (primaryNode == null) {
+            logcat(LogPriority.ERROR) { "No LiveKit nodes available in configuration" }
             errorResource = R.string.voice_error_no_nodes
             return null
         }
 
+        val candidateNodes = listOf(primaryNode) + lk.nodes.filter { it.name != primaryNode.name }
+        for (candidate in candidateNodes) {
+            try {
+                return joinCall(channelId, candidate.name)
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN) { "Could not join call with node ${candidate.name}: ${e.message}" }
+            }
+        }
+
         return try {
-            joinCall(channelId, node.name)
+            joinCall(channelId, "worldwide")
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Could not get LiveKit token\n" + e.asLog() }
             errorResource = R.string.voice_error_generic

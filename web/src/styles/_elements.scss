@@ -75,3 +75,15 @@ hr {
 foreignObject > svg {
     vertical-align: top !important;
 }
+
+* {
+    -webkit-user-drag: none;
+    user-drag: none;
+}
+
+a,
+img,
+button {
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}

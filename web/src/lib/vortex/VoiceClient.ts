@@ -240,16 +240,30 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
      * with autoplay error catching and deaf state handling.
      */
     public attachScreenAudio(uid: string, track: RemoteTrack) {
+        // Stop and remove any prior audio element for this user's screen share
         document
             .querySelectorAll(`audio[id^='audio-screen-${uid}-']`)
-            .forEach((el) => el.remove());
+            .forEach((el) => {
+                const a = el as HTMLAudioElement;
+                try {
+                    a.pause();
+                    a.srcObject = null;
+                } catch (_) {}
+                a.remove();
+            });
+
+        // Only attach and play screen audio if currently actively watching this user's stream
+        const isWatching = this.watchingUserId === uid;
+        if (!isWatching) {
+            return;
+        }
+
         const el = track.attach() as HTMLAudioElement;
         el.id = `audio-screen-${uid}-${track.sid}`;
-        const isWatching = this.watchingUserId === uid;
-        el.muted = !isWatching || this.isDeaf;
-        el.volume = isWatching && !this.isDeaf ? 1.0 : 0.0;
+        el.muted = this.isDeaf;
+        el.volume = this.isDeaf ? 0.0 : 1.0;
         document.body.appendChild(el);
-        if (isWatching && !this.isDeaf) {
+        if (!this.isDeaf) {
             el.play().catch((e) =>
                 console.warn("[VoiceClient] Autoplay prevented for screen audio:", e),
             );
@@ -360,7 +374,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             (this.room as any).startAudio().catch(() => {});
         }
 
-        // Unsubscribe video and mute audio from previously watched stream
+        // Unsubscribe video and screen audio from previously watched stream
         if (prevWatching && prevWatching !== userId && this.room) {
             const pub = this.videoPublications.get(prevWatching);
             if (pub && pub.isSubscribed) {
@@ -368,12 +382,21 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     pub.setSubscribed(false);
                 } catch (_) {}
             }
+            const audioPub = this.screenAudioPublications.get(prevWatching);
+            if (audioPub && audioPub.isSubscribed) {
+                try {
+                    audioPub.setSubscribed(false);
+                } catch (_) {}
+            }
             document
                 .querySelectorAll(`audio[id^='audio-screen-${prevWatching}-']`)
                 .forEach((el) => {
                     const audioEl = el as HTMLAudioElement;
-                    audioEl.muted = true;
-                    audioEl.volume = 0;
+                    try {
+                        audioEl.pause();
+                        audioEl.srcObject = null;
+                    } catch (_) {}
+                    audioEl.remove();
                 });
         }
 
@@ -392,23 +415,18 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 }
             }
 
-            // Unmute and play screen share audio for newly watched user
-            document
-                .querySelectorAll(`audio[id^='audio-screen-${userId}-']`)
-                .forEach((el) => {
-                    const audioEl = el as HTMLAudioElement;
-                    audioEl.muted = this.isDeaf;
-                    audioEl.volume = this.isDeaf ? 0 : 1.0;
-                    audioEl.play().catch(() => {});
-                });
+            // Subscribe to screen share audio publication if present
+            const audioPub = this.screenAudioPublications.get(userId);
+            if (audioPub && !audioPub.isSubscribed) {
+                try {
+                    audioPub.setSubscribed(true);
+                } catch (_) {}
+            }
 
-            // Ensure attached if track was already present
-            const audioTrack = this.screenAudioTracks.get(userId);
+            // Ensure screen audio is attached and played
+            const audioTrack = this.screenAudioTracks.get(userId) || (audioPub?.track as any);
             if (audioTrack) {
-                const existing = document.querySelector(`audio[id^='audio-screen-${userId}-']`);
-                if (!existing) {
-                    this.attachScreenAudio(userId, audioTrack);
-                }
+                this.attachScreenAudio(userId, audioTrack);
             }
         }
     }
@@ -575,7 +593,13 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     if (publication.source === Track.Source.ScreenShareAudio) {
                         this.screenAudioPublications.set(uid, publication);
                         this.screenAudioTracks.set(uid, track);
-                        this.attachScreenAudio(uid, track);
+                        if (this.watchingUserId === uid) {
+                            this.attachScreenAudio(uid, track);
+                        } else {
+                            try {
+                                publication.setSubscribed(false);
+                            } catch (_) {}
+                        }
                     } else {
                         const el = track.attach() as HTMLAudioElement;
                         el.id = `audio-${uid}-${track.sid}`;
@@ -704,7 +728,13 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     this.screenAudioPublications.set(uid, pub);
                     if (pub.track) {
                         this.screenAudioTracks.set(uid, pub.track as any);
+                    }
+                    if (this.watchingUserId === uid && pub.track) {
                         this.attachScreenAudio(uid, pub.track as any);
+                    } else if (pub.isSubscribed && this.watchingUserId !== uid) {
+                        try {
+                            pub.setSubscribed(false);
+                        } catch (_) {}
                     }
                 }
             });
@@ -835,6 +865,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 const captureOpts: ScreenShareCaptureOptions = {
                     audio: screenOpts?.audio !== false,
                     resolution: captureResolution,
+                    selfBrowserSurface: "exclude",
+                    systemAudio: "include",
+                    surfaceSwitching: "include",
+                    suppressLocalAudioPlayback: false,
                 };
 
                 // Compute optimal encoding bitrate based on target resolution and framerate

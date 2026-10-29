@@ -2,6 +2,21 @@
 <html lang="en" background="#151313">
     <head>
         <meta charset="UTF-8" />
+        <script>
+            // Unregister obsolete service workers in LieCord mobile / app
+            if (typeof window !== "undefined" && (navigator.userAgent.includes("LieCord") || window.location.search.includes("nocache"))) {
+                if ("serviceWorker" in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(regs) {
+                        for (var i = 0; i < regs.length; i++) regs[i].unregister();
+                    });
+                }
+                if ("caches" in window) {
+                    caches.keys().then(function(names) {
+                        for (var i = 0; i < names.length; i++) caches.delete(names[i]);
+                    });
+                }
+            }
+        </script>
 
         <!--App Title-->
         <title>LieCord</title>
@@ -10,7 +25,7 @@
         <!--App Scaling-->
         <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, user-scalable=no"
+            content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
         <meta name="apple-mobile-web-app-capable" content="yes" />
 

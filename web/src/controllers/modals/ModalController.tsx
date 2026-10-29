@@ -15,6 +15,7 @@ import { getApplicationState } from "../../mobx/State";
 
 import { history } from "../../context/history";
 
+import AddAccountModal from "./components/AddAccountModal";
 import AddFriend from "./components/AddFriend";
 import BanMember from "./components/BanMember";
 import Changelog from "./components/Changelog";
@@ -255,6 +256,7 @@ class ModalControllerExtended extends ModalController<Modal> {
 }
 
 export const modalController = new ModalControllerExtended({
+    add_account: AddAccountModal,
     add_friend: AddFriend,
     ban_member: BanMember,
     changelog: Changelog,

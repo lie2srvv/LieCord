@@ -10,6 +10,7 @@ import { config } from "./native/config";
 import { initDiscordRpc } from "./native/discordRpc";
 import { initTray } from "./native/tray";
 import { initVirtualMic } from "./native/virtualMic";
+import { initNotifications } from "./native/notifications";
 import { BUILD_URL, createMainWindow, mainWindow } from "./native/window";
 
 // In Flatpak, we have to update the temp dir to a shared directory across host and sandbox;
@@ -90,11 +91,7 @@ if (acquiredLock) {
     initDiscordRpc();
     initVirtualMic();
     initAutoLaunch();
-
-    // Windows specific fix for notifications
-    if (process.platform === "win32") {
-      app.setAppUserModelId("com.lie2srvv.liecord.notifications");
-    }
+    initNotifications();
   });
 
   // focus the window if we try to launch again
@@ -126,21 +123,30 @@ if (acquiredLock) {
   app.on("web-contents-created", (_, contents) => {
     // prevent navigation out of build URL origin
     contents.on("will-navigate", (event, navigationUrl) => {
-      if (new URL(navigationUrl).origin !== BUILD_URL.origin) {
-        event.preventDefault();
+      console.log(`[main.ts will-navigate]: ${navigationUrl} (expected origin: ${BUILD_URL.origin})`);
+      try {
+        if (new URL(navigationUrl).origin !== BUILD_URL.origin) {
+          console.warn(`[main.ts will-navigate BLOCKED]: ${navigationUrl}`);
+          event.preventDefault();
+        }
+      } catch (e) {
+        console.error(`[main.ts will-navigate URL error]:`, e);
       }
     });
 
-    // handle links externally
+    // handle links externally with strict protocol and URL validation
     contents.setWindowOpenHandler(({ url }) => {
-      if (
-        url.startsWith("http:") ||
-        url.startsWith("https:") ||
-        url.startsWith("mailto:")
-      ) {
-        setImmediate(() => {
-          shell.openExternal(url);
-        });
+      try {
+        const parsed = new URL(url);
+        if (["http:", "https:", "mailto:"].includes(parsed.protocol)) {
+          setImmediate(() => {
+            shell.openExternal(parsed.href);
+          });
+        } else {
+          console.warn(`[main.ts setWindowOpenHandler BLOCKED untrusted protocol]: ${parsed.protocol}`);
+        }
+      } catch (err) {
+        console.error(`[main.ts setWindowOpenHandler invalid URL]: ${url}`, err);
       }
 
       return { action: "deny" };

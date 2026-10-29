@@ -8,6 +8,13 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Stoat.TitleLarge</item>
     </style>
 
+    <style name="Theme.Stoat.Splash" parent="Theme.Stoat" />
+    <style name="Theme.Stoat.ImageView" parent="Theme.Stoat" />
+    <style name="Theme.Stoat.Transparent" parent="Theme.Stoat">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
     <!-- We temporarily don't use a dedicated splash screen theme due to Samsung specific issues.
          This theme is unused. -->
     <style name="Theme.Stoat.Starting" parent="Theme.SplashScreen">

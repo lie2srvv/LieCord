@@ -129,6 +129,7 @@ export const IncomingCallModal = observer(() => {
     const caller = client.users.get(call.callerId);
 
     const handleAccept = async () => {
+        if (voiceState.connecting) return;
         const channel = client.channels.get(call.channelId);
         voiceState.stopIncomingCall();
         if (channel) {
@@ -157,6 +158,8 @@ export const IncomingCallModal = observer(() => {
                 <button
                     className="accept-btn"
                     title="Принять"
+                    disabled={voiceState.connecting}
+                    style={{ opacity: voiceState.connecting ? 0.6 : 1, pointerEvents: voiceState.connecting ? "none" : "auto" }}
                     onClick={handleAccept}>
                     <PhoneCall size={20} />
                 </button>

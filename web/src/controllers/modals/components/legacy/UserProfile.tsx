@@ -185,14 +185,27 @@ export const UserProfile = observer(
                             target={user}
                             status
                             animate
-                            hover={typeof user.avatar !== "undefined"}
-                            onClick={() =>
-                                user.avatar &&
-                                modalController.push({
-                                    type: "image_viewer",
-                                    attachment: user.avatar,
-                                })
-                            }
+                            hover={true}
+                            onClick={() => {
+                                const avatarUrl =
+                                    user.animatedAvatarURL ?? user.avatarURL;
+                                if (user.avatar) {
+                                    modalController.push({
+                                        type: "image_viewer",
+                                        attachment: user.avatar,
+                                        url: avatarUrl,
+                                        filename:
+                                            user.avatar.filename ||
+                                            `${user.username}_avatar.webp`,
+                                    });
+                                } else if (avatarUrl) {
+                                    modalController.push({
+                                        type: "image_viewer",
+                                        url: avatarUrl,
+                                        filename: `${user.username}_avatar.png`,
+                                    });
+                                }
+                            }}
                         />
                         <div className={styles.details}>
                             <div className={styles.usernameDetail}>
@@ -228,6 +241,7 @@ export const UserProfile = observer(
                                 </span>
                             )}
                         </div>
+                        <div className={styles.actions}>
                         {isPublicBot && (
                             <Link to={`/bot/${user._id}`}>
                                 <Button
@@ -296,6 +310,7 @@ export const UserProfile = observer(
                                 </Tooltip>
                             </Localizer>
                         )}
+                        </div>
                     </div>
                     {badges > 0 && (
                         <div

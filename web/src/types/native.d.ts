@@ -1,7 +1,8 @@
 type Build = "stable" | "nightly" | "dev";
 
 type NativeConfig = {
-    frame: boolean;
+    frame?: boolean;
+    customFrame?: boolean;
     build: Build;
     discordRPC: boolean;
     minimiseToTray: boolean;
@@ -23,6 +24,8 @@ declare interface Window {
         min();
         max();
         close();
+        minimise?();
+        maximise?();
         reload();
         relaunch();
 

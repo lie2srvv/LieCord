@@ -61,7 +61,7 @@ export default observer(({ channel }: Props) => {
                     style="icon"
                     fileType="icons"
                     behaviour="upload"
-                    maxFileSize={2_500_000}
+                    maxFileSize={25_000_000}
                     onUpload={(icon) => channel.edit({ icon })}
                     previewURL={channel.generateIconURL(
                         { max_side: 256 },

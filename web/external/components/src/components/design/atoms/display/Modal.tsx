@@ -49,15 +49,17 @@ const Base = styled.div<{ closing?: boolean }>`
     z-index: 9999;
     position: fixed;
 
-    max-height: 100%;
     user-select: none;
+    box-sizing: border-box;
 
     animation-duration: 0.2s;
     animation-fill-mode: forwards;
 
-    display: grid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     overflow-y: auto;
-    place-items: center;
+    padding: max(16px, env(safe-area-inset-top, 16px)) 16px max(16px, env(safe-area-inset-bottom, 16px));
 
     color: var(--foreground);
     background: rgba(0, 0, 0, 0.8);
@@ -79,26 +81,21 @@ const Base = styled.div<{ closing?: boolean }>`
 const Container = styled.div<
     Pick<Props, "transparent" | "maxWidth" | "maxHeight"> & { actions: boolean }
 >`
-    min-height: 200px;
-    max-width: min(calc(100vw - 20px), ${(props) => props.maxWidth ?? "450px"});
+    width: 100%;
+    max-width: min(calc(100% - 32px), ${(props) => props.maxWidth ?? "450px"});
     max-height: min(
-        calc(100vh - 20px),
+        calc(100% - 32px),
         ${(props) => props.maxHeight ?? "650px"}
     );
 
-    margin: 20px;
+    margin: auto;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
 
     animation-name: ${animationZoomIn};
     animation-duration: 0.25s;
     animation-timing-function: cubic-bezier(0.3, 0.3, 0.18, 1.1);
-
-    ${(props) =>
-        !props.maxWidth &&
-        css`
-            width: 100%;
-        `}
 
     ${(props) =>
         !props.transparent &&
@@ -107,6 +104,10 @@ const Container = styled.div<
             background: var(--secondary-header);
             border-radius: var(--border-radius-modal, 24px);
         `}
+
+    @media (max-width: 600px) {
+        border-radius: var(--border-radius-modal, 18px);
+    }
 `;
 
 const Title = styled.div`
@@ -116,15 +117,22 @@ const Title = styled.div`
     gap: 8px;
     display: flex;
     flex-direction: column;
+
+    @media (max-width: 600px) {
+        padding: 12px 16px 8px;
+    }
 `;
 
 const Content = styled.div<Pick<Props, "transparent" | "padding">>`
-    flex-grow: 1;
+    flex: 0 1 auto;
+    min-height: 0;
     padding-top: 0;
     padding: ${(props) => props.padding ?? "0 1rem 1rem"};
 
     overflow-y: auto;
     font-size: 0.9375rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 
     display: flex;
     flex-direction: column;
@@ -134,6 +142,10 @@ const Content = styled.div<Pick<Props, "transparent" | "padding">>`
         css`
             background: var(--secondary-header);
         `}
+
+    @media (max-width: 600px) {
+        padding: ${(props) => props.padding ?? "0 14px 12px"};
+    }
 `;
 
 const Actions = styled.div`
@@ -146,6 +158,11 @@ const Actions = styled.div`
 
     background: var(--secondary-background);
     border-radius: 0 0 var(--border-radius-modal, 24px) var(--border-radius-modal, 24px);
+
+    @media (max-width: 600px) {
+        padding: 10px 14px;
+        border-radius: 0 0 var(--border-radius-modal, 18px) var(--border-radius-modal, 18px);
+    }
 `;
 
 export const Modal: (props: Props) => JSX.Element = ({

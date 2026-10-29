@@ -1,3 +1,4 @@
+import { isCallStartedMessage } from "./callMessage";
 import { ChevronRight, Trash } from "@styled-icons/boxicons-regular";
 import { Cog, UserVoice } from "@styled-icons/boxicons-solid";
 import { isFirefox } from "react-device-detect";
@@ -266,6 +267,12 @@ export default function ContextMenus() {
 
                 case "edit_message":
                     {
+                        const msg = client.messages.get(data.id);
+                        internalEmit(
+                            "MessageBox",
+                            "edit",
+                            msg ?? data.id,
+                        );
                         internalEmit(
                             "MessageRenderer",
                             "edit_message",
@@ -847,9 +854,12 @@ export default function ContextMenus() {
                             );
                         }
 
+                        const isProtectedCallMsg = isCallStartedMessage(message.content);
+
                         if (
-                            message.author_id === userId ||
-                            channelPermissions & Permission.ManageMessages
+                            !isProtectedCallMsg &&
+                            (message.author_id === userId ||
+                            channelPermissions & Permission.ManageMessages)
                         ) {
                             generateAction(
                                 {

@@ -164,6 +164,15 @@ export default class Session {
             await this.client!.useExistingSession(data.session);
             this.user_id = this.client!.user!._id;
             state.auth.setSession(data.session);
+            try {
+                const token = (data.session as any)?.token;
+                const userId = this.user_id;
+                if (token && userId && (window as any).LieCordNative?.updateAuthSession) {
+                    (window as any).LieCordNative.updateAuthSession(token, userId);
+                }
+            } catch (e) {
+                console.error("Failed to sync session with LieCordNative:", e);
+            }
         } catch (err) {
             this.state = "Ready";
             throw err;
@@ -219,6 +228,15 @@ export default class Session {
             case "SUCCESS": {
                 this.assert("Connecting");
                 this.state = "Online";
+                try {
+                    const token = (this.client?.session as any)?.token;
+                    const userId = this.client?.user?._id;
+                    if (token && userId && (window as any).LieCordNative?.updateAuthSession) {
+                        (window as any).LieCordNative.updateAuthSession(token, userId);
+                    }
+                } catch (e) {
+                    console.error("Failed to sync session with LieCordNative:", e);
+                }
                 break;
             }
             // Client got disconnected
@@ -250,6 +268,11 @@ export default class Session {
             case "LOGOUT": {
                 this.assert("Connecting", "Online", "Disconnected");
                 this.state = "Ready";
+                try {
+                    if ((window as any).LieCordNative?.updateAuthSession) {
+                        (window as any).LieCordNative.updateAuthSession("", "");
+                    }
+                } catch (e) {}
                 this.destroyClient();
                 break;
             }

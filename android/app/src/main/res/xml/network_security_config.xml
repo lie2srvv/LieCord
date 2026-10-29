@@ -1,11 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/cloudflare_tls_i_e1" />
+            <certificates src="@raw/sslcom_tls_ecc_root_ca_2022" />
+            <certificates src="@raw/we1" />
+        </trust-anchors>
+    </base-config>
     <domain-config>
+        <domain includeSubdomains="true">cord.lie2srvv.com</domain>
         <domain includeSubdomains="true">stoatusercontent.com</domain>
         <trust-anchors>
+            <certificates src="system" />
             <certificates src="@raw/cloudflare_tls_i_e1" />
             <certificates src="@raw/sslcom_tls_ecc_root_ca_2022" />
             <certificates src="@raw/we1" />
         </trust-anchors>
     </domain-config>
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>

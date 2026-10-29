@@ -530,7 +530,8 @@ export class Client extends EventEmitter {
 
         let query = "";
         if (options) {
-            if (!allowAnimation || content_type !== "image/gif") {
+            const isAnimated = content_type === "image/gif" || content_type === "image/webp" || Boolean(metadata && (metadata as any).animated);
+            if (!allowAnimation || !isAnimated) {
                 query =
                     "?" +
                     Object.keys(options)

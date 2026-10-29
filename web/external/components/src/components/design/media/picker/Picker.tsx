@@ -73,12 +73,28 @@ const Base = styled(Column)`
     // row width + scrollbar + group selector
     width: calc(${ROW_SIZE} * 40px + 10px + 40px);
     height: 420px;
+    min-height: 280px;
 
     max-width: calc(100vw - 20px);
-    max-height: calc(75vh);
+    max-height: 75vh;
 
     background: var(--background);
     border-radius: var(--border-radius);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    z-index: 1000;
+
+    @media (max-width: 600px) {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        bottom: calc(var(--bottom-navigation-height, 0px) + 64px + max(env(safe-area-inset-bottom, 0px), 0px)) !important;
+        width: auto !important;
+        max-width: calc(100vw - 16px) !important;
+        height: min(380px, 50vh) !important;
+        max-height: 50vh !important;
+        min-height: 240px !important;
+        border: 1px solid var(--secondary-header) !important;
+    }
 `;
 
 /**

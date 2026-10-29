@@ -4,14 +4,10 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import androidx.core.content.ContextCompat.getSystemService
 import chat.stoat.R
-
-// TODO
-//  * Add the remaining groups.
-//  * Add the remaining channels.
-//  * Find out whether every conversation should have its own channel or if they should be grouped
-//    together as one channel.
 
 class ChannelRegistrator(val context: Context) {
     companion object {
@@ -24,6 +20,9 @@ class ChannelRegistrator(val context: Context) {
 
         const val CHANNEL_ID_GROUP_VOICE = "chat.stoat.voice"
         const val CHANNEL_ID_GROUP_VOICE_ONGOING = "chat.stoat.voice.ongoing"
+        const val CHANNEL_ID_GROUP_VOICE_INCOMING = "chat.stoat.voice.incoming"
+
+        const val CHANNEL_ID_SERVICE_STATUS = "chat.stoat.service.status"
     }
 
     private val notificationManager =
@@ -87,6 +86,44 @@ class ChannelRegistrator(val context: Context) {
                     context.getString(R.string.notification_channel_ongoing_call_description)
                 setSound(null, null)
                 enableVibration(false)
+            }
+        )
+
+        // Incoming Call Channel with dedicated ringtone and vibration loop
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+            .build()
+
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID_GROUP_VOICE_INCOMING,
+                "Входящие звонки",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                group = CHANNEL_ID_GROUP_VOICE
+                description = "Уведомления о входящих голосовых и видео звонках"
+                setSound(ringtoneUri, audioAttributes)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 1000, 800, 1000, 800)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setShowBadge(true)
+            }
+        )
+
+        // Silent persistent service notification channel
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID_SERVICE_STATUS,
+                "Фоновая служба LieCord",
+                NotificationManager.IMPORTANCE_MIN
+            ).apply {
+                group = CHANNEL_ID_GROUP_CONVERSATIONS
+                description = "Служба фонового подключения и моментальной доставки уведомлений"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
             }
         )
     }

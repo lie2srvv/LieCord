@@ -91,6 +91,8 @@ export type Modal = {
           type: "image_viewer";
           embed?: API.Image;
           attachment?: API.File;
+          url?: string;
+          filename?: string;
       }
     | {
           type: "user_picker";
@@ -203,6 +205,9 @@ export type Modal = {
           isCircle?: boolean;
           title?: string;
           onCrop: (croppedFile: File) => Promise<void> | void;
+      }
+    | {
+          type: "add_account";
       }
 );
 

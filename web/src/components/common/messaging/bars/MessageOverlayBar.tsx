@@ -1,3 +1,4 @@
+import { isCallStartedMessage } from "../../../../lib/callMessage";
 import { DotsVerticalRounded, LinkAlt } from "@styled-icons/boxicons-regular";
 import {
     Pencil,
@@ -135,20 +136,21 @@ export const MessageOverlayBar = observer(
                 {isAuthor && (
                     <Tooltip content="Edit">
                         <Entry
-                            onClick={() =>
+                            onClick={() => {
+                                internalEmit("MessageBox", "edit", message);
                                 internalEmit(
                                     "MessageRenderer",
                                     "edit_message",
                                     message._id,
-                                )
-                            }>
+                                );
+                            }}>
                             <Pencil size={18} />
                         </Entry>
                     </Tooltip>
                 )}
-                {isAuthor ||
+                {!isCallStartedMessage(message.content) && (isAuthor ||
                 (message.channel &&
-                    message.channel.havePermission("ManageMessages")) ? (
+                    message.channel.havePermission("ManageMessages"))) ? (
                     <Tooltip content="Delete">
                         <Entry
                             onClick={(e) =>

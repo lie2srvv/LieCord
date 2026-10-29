@@ -1,4 +1,16 @@
 {$HOSTNAME} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' wss://cord.lie2srvv.com https://*.livekit.cloud; font-src 'self' data:; frame-ancestors 'self';"
+	}
+	route /.well-known/assetlinks.json {
+		header Content-Type application/json
+		header Access-Control-Allow-Origin *
+		respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.lie2srvv.liecord","sha256_cert_fingerprints":["00:B6:2C:C3:1B:6C:CF:39:9F:1A:01:07:C3:E5:62:A1:0C:8D:2A:58:A9:C6:B1:F0:9B:DC:FB:06:31:EF:9C:51"]}}]` 200
+	}
 	route /.well-known/stoat {
 		uri strip_prefix /.well-known/stoat
 		header {
@@ -31,7 +43,7 @@
 
 	route /autumn* {
 		uri strip_prefix /autumn
-		reverse_proxy http://autumn:14704 {
+		reverse_proxy http://172.18.0.1:14708 {
 			header_down Location "^/" "/autumn/"
 		}
 	}
@@ -40,6 +52,7 @@
 		uri strip_prefix /january
 		reverse_proxy http://january:14705 {
 			header_down Location "^/" "/january/"
+			header_down Cache-Control "public, max-age=86400, stale-while-revalidate=43200"
 		}
 	}
 
@@ -61,6 +74,42 @@
 		uri strip_prefix /ingress
 		reverse_proxy http://voice-ingress:8500 {
 			header_down Location "^/" "/ingress/"
+		}
+	}
+
+	redir /downloads /downloads/
+
+	route /downloads* {
+		@apk path *.apk
+		header @apk Content-Type application/vnd.android.package-archive
+
+		@downloadFiles {
+			not path */
+			not path *.html
+			not path *.png
+			not path *.svg
+			not path *.ico
+			not path *.webp
+		}
+		header @downloadFiles Content-Disposition "attachment"
+
+		uri strip_prefix /downloads
+		file_server {
+			root /downloads
+			index index.html
+		}
+	}
+
+	route /emoji* {
+		reverse_proxy https://static.revolt.chat {
+			header_up Host static.revolt.chat
+			header_down Cache-Control "public, max-age=31536000, immutable"
+		}
+	}
+
+	route /assets* {
+		reverse_proxy http://web:5000 {
+			header_down Cache-Control "public, max-age=31536000, immutable"
 		}
 	}
 

@@ -95,7 +95,7 @@ export function SearchSidebar({ close }: Props) {
     }, [sort]);
 
     return (
-        <GenericSidebarBase data-scroll-offset="with-padding">
+        <GenericSidebarBase borderSide="left" data-scroll-offset="with-padding">
             <GenericSidebarList>
                 <SearchBase>
                     <Category>

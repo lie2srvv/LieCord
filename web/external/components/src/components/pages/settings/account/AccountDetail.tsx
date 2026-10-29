@@ -8,6 +8,30 @@ import { useUI } from "../../../../lib";
 
 import { Button, Avatar, Column, H1, Row, Tooltip } from "../../../design";
 
+const AccountContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: 600px) {
+        flex-wrap: wrap;
+        gap: 12px;
+
+        .edit-profile-link {
+            width: 100%;
+            margin-top: 6px;
+
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    }
+`;
+
 const UserId = styled.div`
     gap: 4px;
     display: flex;
@@ -35,7 +59,7 @@ export const AccountDetail = observer(({ user }: Props) => {
     const { Link, Text, emitAction } = useUI();
 
     return (
-        <Row gap="16px" centred>
+        <AccountContainer>
             <Link to="/settings/profile" replace>
                 <Avatar
                     src={user.generateAvatarURL({
@@ -76,11 +100,13 @@ export const AccountDetail = observer(({ user }: Props) => {
                     </UserId>
                 </Column>
             </Row>
-            <Link to="/settings/profile" replace>
-                <Button palette="secondary">
-                    <Text id="app.settings.pages.profile.edit_profile" />
-                </Button>
-            </Link>
-        </Row>
+            <div className="edit-profile-link">
+                <Link to="/settings/profile" replace>
+                    <Button palette="secondary">
+                        <Text id="app.settings.pages.profile.edit_profile" />
+                    </Button>
+                </Link>
+            </div>
+        </AccountContainer>
     );
 });

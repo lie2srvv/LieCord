@@ -1,4 +1,5 @@
 import { Route, Switch } from "react-router";
+import styled from "styled-components/macro";
 
 import { useEffect, useState } from "preact/hooks";
 
@@ -30,11 +31,16 @@ export default function RightSidebar() {
         );
 
     return (
-        <SidebarBase>
+        <RightSidebarBase>
             <Switch>
                 <Route path="/server/:server/channel/:channel">{content}</Route>
                 <Route path="/channel/:channel">{content}</Route>
             </Switch>
-        </SidebarBase>
+        </RightSidebarBase>
     );
 }
+
+const RightSidebarBase = styled(SidebarBase)`
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+`;

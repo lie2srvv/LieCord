@@ -1,3 +1,4 @@
+import { createCallStartedMessage } from "../callMessage";
 import { action, makeAutoObservable, ObservableMap, runInAction } from "mobx";
 import { Channel, Nullable, toNullable } from "revolt.js";
 
@@ -95,6 +96,23 @@ class VoiceStateReference {
         this.startDeafen = this.startDeafen.bind(this);
         this.stopDeafen = this.stopDeafen.bind(this);
 
+        // Listen for native desktop incoming call actions
+        try {
+            if ((window as any).native?.onIncomingCallClicked) {
+                (window as any).native.onIncomingCallClicked(({ channelId, action }: { channelId: string; action: string }) => {
+                    if (action === "accept") {
+                        this.acceptIncomingCall(channelId);
+                    } else if (action === "decline") {
+                        this.stopIncomingCall();
+                    } else {
+                        window.focus();
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to register desktop onIncomingCallClicked:", e);
+        }
+
         makeAutoObservable(this, {
             client: false,
             connecting: false,
@@ -149,6 +167,21 @@ class VoiceStateReference {
         if (this.incomingCall?.channelId === channelId) return;
         this.incomingCall = { channelId, callerId, callerName };
 
+        try {
+            if ((window as any).native?.showIncomingCall) {
+                const callerUser = (this.client as any)?.users?.get(callerId);
+                const avatarUrl = callerUser?.generateAvatarURL ? callerUser.generateAvatarURL({ max_side: 256 }) : null;
+                (window as any).native.showIncomingCall({
+                    channelId,
+                    callerId,
+                    callerName,
+                    avatarUrl
+                });
+            }
+        } catch (e) {
+            console.error("Failed to notify desktop native of incoming call:", e);
+        }
+
         if (!this.ringtoneAudio) {
             this.ringtoneAudio = new Audio(messageSound);
             this.ringtoneAudio.volume = 0.8;
@@ -193,11 +226,17 @@ class VoiceStateReference {
             clearInterval(this.ringtoneInterval);
             this.ringtoneInterval = undefined;
         }
+        const targetChannelId = this.incomingCall?.channelId;
         this.incomingCall = null;
         if (this.ringtoneAudio) {
             this.ringtoneAudio.pause();
             this.ringtoneAudio.currentTime = 0;
         }
+        try {
+            if ((window as any).native?.dismissIncomingCall) {
+                (window as any).native.dismissIncomingCall(targetChannelId || null);
+            }
+        } catch (e) {}
     }
 
     @action handlePacket(packet: any, client: any) {
@@ -242,7 +281,10 @@ class VoiceStateReference {
 
                 // Incoming call check for DM / Group
                 const selfId = client?.user?._id;
-                if (selfId && uid !== selfId && this.roomId !== cid) {
+                // Check if this user is already participating in this channel from another session/device
+                const userAlreadyInChannel = prev.some((p) => p.id === selfId);
+
+                if (selfId && uid !== selfId && this.roomId !== cid && !userAlreadyInChannel) {
                     const channel = client?.channels?.get(cid);
                     if (
                         channel &&
@@ -391,6 +433,17 @@ class VoiceStateReference {
         this.stopIncomingCall();
         this.connecting = true;
         this.status = VoiceStatus.CONNECTING;
+
+        // If initiating a call in DM or Group and room is empty, notify chat with call started message
+        const currentParticipants = this.getChannelParticipants(channel._id);
+        if (
+            currentParticipants.length === 0 &&
+            (channel.channel_type === "DirectMessage" || channel.channel_type === "Group")
+        ) {
+            channel.sendMessage({ content: createCallStartedMessage() }).catch((err) => {
+                console.warn("Failed to send call started message:", err);
+            });
+        }
 
         try {
             const call = await channel.joinCall();

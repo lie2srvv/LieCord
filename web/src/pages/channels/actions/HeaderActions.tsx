@@ -51,7 +51,6 @@ const SearchBar = styled.div`
         font-weight: 400;
         height: 100%;
         width: 100%;
-        }
     }
 
     .actions {
@@ -135,21 +134,11 @@ export default function HeaderActions({ channel }: ChannelHeaderProps) {
                 <VoiceActions channel={channel} />
                 {(channel.channel_type === "Group" ||
                     channel.channel_type === "TextChannel") && (
-                    <IconButton onClick={openMembers}>
+                    <IconButton onClick={openMembers} title="Участники">
                         <Group size={25} />
                     </IconButton>
                 )}
                 {channel.channel_type !== "VoiceChannel" && (
-                    /*<SearchBar>
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            onClick={openSearch}
-                        />
-                        <div className="actions">
-                            <Search size={18} />
-                        </div>
-                    </SearchBar>*/
                     <IconButton onClick={openSearch}>
                         <Search size={25} />
                     </IconButton>
@@ -168,16 +157,7 @@ const VoiceActions = observer(
             return null;
 
         const handleCall = async () => {
-            const parts = voiceState.getChannelParticipants(channel._id);
-            if (
-                parts.length === 0 &&
-                (channel.channel_type === "DirectMessage" ||
-                    channel.channel_type === "Group")
-            ) {
-                channel
-                    .sendMessage({ content: "📞 Звонок начат" })
-                    .catch(() => {});
-            }
+            if (voiceState.connecting) return;
             await voiceState.loadVoice();
             voiceState.disconnect();
             voiceState.connect(channel);
@@ -186,21 +166,35 @@ const VoiceActions = observer(
         if (voiceState.status >= VoiceStatus.READY) {
             if (voiceState.roomId === channel._id) {
                 return (
-                    <IconButton onClick={voiceState.disconnect}>
+                    <IconButton onClick={voiceState.disconnect} title="Завершить звонок">
                         <PhoneOff size={22} />
                     </IconButton>
                 );
             }
 
             return (
-                <IconButton onClick={handleCall}>
+                <IconButton
+                    onClick={handleCall}
+                    disabled={voiceState.connecting}
+                    style={{
+                        opacity: voiceState.connecting ? 0.6 : 1,
+                        pointerEvents: voiceState.connecting ? "none" : "auto",
+                    }}
+                    title={voiceState.connecting ? "Соединение..." : "Позвонить"}>
                     <PhoneCall size={24} />
                 </IconButton>
             );
         }
 
         return (
-            <IconButton onClick={handleCall}>
+            <IconButton
+                onClick={handleCall}
+                disabled={voiceState.connecting}
+                style={{
+                    opacity: voiceState.connecting ? 0.6 : 1,
+                    pointerEvents: voiceState.connecting ? "none" : "auto",
+                }}
+                title={voiceState.connecting ? "Соединение..." : "Позвонить"}>
                 <PhoneCall size={24} />
             </IconButton>
         );

@@ -11,28 +11,36 @@ const Backdrop = styled.div`
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(2px);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    padding: max(env(safe-area-inset-top, 0px), 16px) 16px max(env(safe-area-inset-bottom, 0px), 16px);
+    box-sizing: border-box;
+    overflow-y: auto;
 `;
 
 const Container = styled.div`
-    width: 620px;
-    max-width: 90vw;
+    width: 600px;
+    max-width: min(calc(100% - 24px), 600px);
+    max-height: min(calc(100% - 32px), 620px);
+    margin: auto;
     background: var(--primary-background, #1e1f22);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     color: var(--foreground, #dbdee1);
     font-family: inherit;
     animation: fadeIn 0.15s ease-out;
+    box-sizing: border-box;
 
     @keyframes fadeIn {
         from {
@@ -113,7 +121,8 @@ const SourcesGrid = styled.div`
     max-height: 260px;
     overflow-y: auto;
 
-    &::-webkit-scrollbar {\n        width: 8px;
+    &::-webkit-scrollbar {
+        width: 8px;
     }
     &::-webkit-scrollbar-track {
         background: transparent;
@@ -135,7 +144,7 @@ const SourceCard = styled.div<{ selected: boolean }>`
         ${(props) =>
             props.selected ? "var(--accent, #5865f2)" : "transparent"};
     box-shadow: ${(props) =>
-        props.selected ? "0 0 0 1px var(--accent, #5865f2)" : "none"};
+        props.selected ? "0 0 0 1px var(--accent, #5865f2)" : "none"}
     transition: transform 0.1s, border-color 0.15s, background-color 0.15s;
 
     &:hover {
@@ -216,6 +225,25 @@ const SettingsRow = styled.div`
         border-radius: 6px;
         gap: 2px;
         flex-wrap: wrap;
+    }
+
+    @media (max-width: 520px) {\
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+
+        .options {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        button {
+            flex: 1;
+            text-align: center;
+            padding: 6px 4px !important;
+            font-size: 11px !important;
+        }
     }
 `;
 
@@ -320,6 +348,13 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
         typeof window !== "undefined" &&
             window.native &&
             typeof window.native.getScreenSources === "function",
+    );
+
+    const isMobileApp = Boolean(
+        typeof window !== "undefined" &&
+            ((window as any).LieCordNative ||
+                (window as any).isLieCordApp ||
+                /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)),
     );
 
     useEffect(() => {
@@ -472,12 +507,27 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                 ) : (
                     <div
                         style={{
-                            padding: "24px 20px",
+                            padding: "20px 24px",
                             fontSize: "14px",
-                            color: "#949ba4",
+                            color: "#dbdee1",
+                            lineHeight: "1.5",
                         }}>
-                        Окно выбора экрана или приложения откроется после
-                        нажатия кнопки «В эфир».
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                marginBottom: "6px",
+                                color: "#ffffff",
+                                fontSize: "15px",
+                            }}>
+                            {isMobileApp
+                                ? "Трансляция экрана устройства"
+                                : "Демонстрация экрана"}
+                        </div>
+                        <div style={{ color: "#949ba4", fontSize: "13px" }}>
+                            {isMobileApp
+                                ? "После нажатия «В эфир» появится системный запрос Android на запись экрана. Вы сможете показывать приложения, рабочий стол и медиа."
+                                : "Окно выбора экрана или приложения откроется после нажатия кнопки «В эфир»."}
+                        </div>
                     </div>
                 )}
 
@@ -500,16 +550,20 @@ export default function ScreenShareModal(props: ModalProps<"screen_share">) {
                                 onClick={() => setResolution("1080")}>
                                 FHD (1080p)
                             </OptionButton>
-                            <OptionButton
-                                active={resolution === "1440"}
-                                onClick={() => setResolution("1440")}>
-                                2K (1440p)
-                            </OptionButton>
-                            <OptionButton
-                                active={resolution === "2160"}
-                                onClick={() => setResolution("2160")}>
-                                UHD (4K)
-                            </OptionButton>
+                            {!isMobileApp && (
+                                <>
+                                    <OptionButton
+                                        active={resolution === "1440"}
+                                        onClick={() => setResolution("1440")}>
+                                        2K (1440p)
+                                    </OptionButton>
+                                    <OptionButton
+                                        active={resolution === "2160"}
+                                        onClick={() => setResolution("2160")}>
+                                        UHD (4K)
+                                    </OptionButton>
+                                </>
+                            )}
                         </div>
                     </SettingsRow>
 

@@ -130,6 +130,7 @@ export const VoiceCallBanner = observer(({ channel }: { channel: Channel }) => {
     }
 
     const handleJoin = async () => {
+        if (voiceState.connecting) return;
         await voiceState.loadVoice();
         voiceState.disconnect();
         voiceState.connect(channel);
@@ -153,7 +154,7 @@ export const VoiceCallBanner = observer(({ channel }: { channel: Channel }) => {
                     ))}
                 </div>
             </div>
-            <Button className="join-button" onClick={handleJoin}>
+            <Button className="join-button" onClick={handleJoin} disabled={voiceState.connecting} style={{ opacity: voiceState.connecting ? 0.6 : 1, pointerEvents: voiceState.connecting ? "none" : "auto" }}>
                 Присоединиться к звонку
             </Button>
         </BannerBase>
@@ -252,6 +253,7 @@ export const VoiceChannelLobby = observer(
         const participants = voiceState.getChannelParticipants(channel._id);
 
         const handleConnect = async () => {
+            if (voiceState.connecting) return;
             await voiceState.loadVoice();
             voiceState.disconnect();
             voiceState.connect(channel);
@@ -287,7 +289,7 @@ export const VoiceChannelLobby = observer(
                     </div>
                 )}
 
-                <Button className="connect-action-btn" onClick={handleConnect}>
+                <Button className="connect-action-btn" onClick={handleConnect} disabled={voiceState.connecting} style={{ opacity: voiceState.connecting ? 0.6 : 1, pointerEvents: voiceState.connecting ? "none" : "auto" }}>
                     <VolumeFull size={20} /> Подключиться к голосовому каналу
                 </Button>
             </LobbyBase>

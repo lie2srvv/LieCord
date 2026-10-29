@@ -48,6 +48,11 @@ type PageHeaderProps = Omit<Props, "placement" | "borders"> & {
     icon: Children;
 };
 
+const StyledHeader = styled(Header)`
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-sizing: border-box;
+`;
+
 export const PageHeader = observer(
     ({ children, icon, noBurger, ...props }: PageHeaderProps) => {
         const layout = useApplicationState().layout;
@@ -55,7 +60,7 @@ export const PageHeader = observer(
         const { pathname } = useLocation();
 
         return (
-            <Header
+            <StyledHeader
                 {...props}
                 palette="primary"
                 topBorder={!visible}
@@ -74,7 +79,7 @@ export const PageHeader = observer(
                     )}
                 </IconContainer>
                 {children}
-            </Header>
+            </StyledHeader>
         );
     },
 );

@@ -12,7 +12,7 @@
         "typecheck": "tsc --noEmit",
         "start": "sirv dist --cors --single --host",
         "start:inject": "node scripts/inject.js && sirv dist_injected --cors --single --host",
-        "postinstall": "node scripts/patch-livekit.js"
+        "postinstall": "node scripts/patch-livekit.js && node scripts/patch-preact-context-menu.js"
     },
     "eslintConfig": {
         "parser": "@typescript-eslint/parser",

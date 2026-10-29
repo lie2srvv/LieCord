@@ -29,7 +29,9 @@ export default function CropModal({
     const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
     const [loading, setLoading] = useState(false);
 
-    const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name);
+    const isGif = file.type === "image/gif" || /\.gif$/i.test(file.name);
+    const isVideo = (file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name)) && !isGif;
+    const isAnimated = isVideo || isGif;
 
     // Zoom and position offsets (in CSS display pixels relative to center)
     const [scale, setScale] = useState<number>(1);
@@ -222,16 +224,20 @@ export default function CropModal({
             const srcW = Math.max(2, Math.min(naturalDimensions.width - srcX, rawSrcW));
             const srcH = Math.max(2, Math.min(naturalDimensions.height - srcY, rawSrcH));
 
-            // For video: preserve full animation and frames!
-            // We pass the calculated crop coordinates encoded in filename so server-side FFmpeg can crop exactly what user framed.
-            if (isVideo) {
-                const ext = file.name.split(".").pop() || "mp4";
-                const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || "video";
+            // For animated media (video or gif): preserve full animation and frames!
+            // We pass calculated crop coordinates in filename so server-side FFmpeg crops and transcodes to infinite-loop WebP.
+            if (isAnimated) {
+                const ext = file.name.split(".").pop() || (isGif ? "gif" : "mp4");
+                const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || "animated";
                 const croppedVideoFile = new File([file], `${baseName}_crop_${srcX}_${srcY}_${srcW}_${srcH}.${ext}`, {
-                    type: file.type || "video/mp4",
+                    type: file.type || (isGif ? "image/gif" : "video/mp4"),
                 });
-                await onCrop(croppedVideoFile);
-                onClose();
+                try {
+                    await onCrop(croppedVideoFile);
+                    onClose();
+                } finally {
+                    setLoading(false);
+                }
                 return;
             }
 
@@ -252,8 +258,6 @@ export default function CropModal({
             if (!ctx) {
                 throw new Error("Unable to create canvas context");
             }
-
-
 
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
@@ -340,6 +344,13 @@ export default function CropModal({
                 },
             ]}>
             <div className={styles.container}>
+                {loading && (
+                    <div className={styles.loadingOverlay}>
+                        <div className={styles.spinner} />
+                        <span>{isAnimated ? "Оптимизация видео..." : "Обработка изображения..."}</span>
+                    </div>
+                )}
+
                 <div
                     ref={containerRef}
                     className={styles.viewportContainer}

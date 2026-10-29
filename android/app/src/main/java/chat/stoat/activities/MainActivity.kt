@@ -137,6 +137,7 @@ import chat.stoat.screens.settings.server.ServerSettingsInvites
 import chat.stoat.screens.settings.server.ServerSettingsOverview
 import chat.stoat.screens.settings.server.ServerSettingsRoleEditor
 import chat.stoat.screens.settings.server.ServerSettingsRoles
+import chat.stoat.screens.web.LieCordWebScreen
 import chat.stoat.ui.theme.StoatTheme
 import chat.stoat.voice.VoiceCallManager
 import io.ktor.client.request.get
@@ -341,15 +342,18 @@ class MainActivity : AppCompatActivity() {
     // See the other one in DefaultDestinationScreen.kt
     override fun onResume() {
         super.onResume()
-        @Suppress("DEPRECATION") // no Compose-side equivalent for this window flag
+        @Suppress("DEPRECATION")
         window.statusBarColor = Color.Transparent.toArgb()
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = Color.Transparent.toArgb()
     }
 
-    // Same as above for configuration changes (rotation, dark mode, etc.)
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        @Suppress("DEPRECATION") // no Compose-side equivalent for this window flag
+        @Suppress("DEPRECATION")
         window.statusBarColor = Color.Transparent.toArgb()
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = Color.Transparent.toArgb()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -359,6 +363,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleNavigationIntent(intent: Intent) {
+        if (intent.action == "chat.stoat.ACTION_ACCEPT_CALL") {
+            val channelId = intent.getStringExtra("channelId") ?: return
+            chat.stoat.c2dm.CallNotificationManager.dismissIncomingCall(this, channelId)
+            NotificationDeepLink.pendingNavigation.value = chat.stoat.internals.StoatWebLink.Channel(channelId)
+            chat.stoat.c2dm.CallEvents.onCallAccepted?.invoke(channelId)
+            return
+        }
+
         val webLink = intent.data?.toStoatWebLinkOrNull()
         if (webLink != null) {
             NotificationDeepLink.pendingNavigation.value = webLink
@@ -386,8 +398,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        @Suppress("DEPRECATION") // We are fixing a bug in the splash screen
+        @Suppress("DEPRECATION")
         window.statusBarColor = Color.Transparent.toArgb()
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = Color.Transparent.toArgb()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         StoatAPI.hydrateFromPersistentCache()
@@ -395,35 +412,20 @@ class MainActivity : AppCompatActivity() {
         handleNavigationIntent(intent)
 
         setContent {
-            val windowSizeClass = calculateWindowSizeClass(this)
-            AppEntrypoint(
-                windowSizeClass,
-                viewModel.nextDestination.collectAsState().value,
-                viewModel.isConnected.collectAsState().value,
-                viewModel.activeAlert.collectAsState().value,
-                viewModel.isAlertActive.collectAsState().value,
-                viewModel.couldNotLogIn.collectAsState().value,
-                viewModel::logOut,
-                viewModel::onDismissHealthAlert,
-                viewModel::onDismissLoginError,
-                viewModel::checkLoggedInState,
-                viewModel::updateNextDestination
-            )
+            StoatTheme(
+                requestedTheme = chat.stoat.ui.theme.Theme.M3Dynamic,
+                requestedUserInterfaceFont = chat.stoat.api.settings.UserInterfaceFont.Default
+            ) {
+                LieCordWebScreen()
+            }
         }
 
         val content: View = findViewById(android.R.id.content)
         content.viewTreeObserver.addOnPreDrawListener(
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
-                    // Check whether the initial data is ready.
-                    return if (viewModel.isReady.value) {
-                        // The content is ready. Start drawing.
-                        content.viewTreeObserver.removeOnPreDrawListener(this)
-                        true
-                    } else {
-                        // The content isn't ready. Suspend.
-                        false
-                    }
+                    content.viewTreeObserver.removeOnPreDrawListener(this)
+                    return true
                 }
             }
         )

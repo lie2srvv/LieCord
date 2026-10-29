@@ -46,6 +46,8 @@ const ServerBanner = styled.div<Omit<Props, "server">>`
 
     .container {
         height: var(--header-height);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        box-sizing: border-box;
 
         display: flex;
         align-items: center;
@@ -91,7 +93,7 @@ export default observer(({ server }: Props) => {
                                 width="20"
                             />
                             <image
-                                xlinkHref="/assets/badges/revolt_r.svg"
+                                xlinkHref="/assets/logo.png"
                                 height="15"
                                 width="15"
                                 x="2"

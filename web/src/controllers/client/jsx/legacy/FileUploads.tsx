@@ -388,14 +388,16 @@ export function FileUploader(props: Props) {
                             <Text id="app.settings.actions.upload" />
                         )}
                     </span>
-                    <span className={styles.small}>
-                        <Text
-                            id="app.settings.actions.max_filesize"
-                            fields={{
-                                filesize: determineFileSize(maxFileSize),
-                            }}
-                        />
-                    </span>
+                    {!(props.previewURL || previewFile) && (
+                        <span className={styles.small}>
+                            <Text
+                                id="app.settings.actions.max_filesize"
+                                fields={{
+                                    filesize: determineFileSize(maxFileSize),
+                                }}
+                            />
+                        </span>
+                    )}
                 </div>
             </div>
         );

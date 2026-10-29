@@ -9,7 +9,7 @@ import { internalEmit } from "../../../../lib/eventEmitter";
 import { isTouchscreenDevice } from "../../../../lib/isTouchscreenDevice";
 import { getRenderer } from "../../../../lib/renderer/Singleton";
 
-export const Bar = styled.div<{ position: "top" | "bottom"; accent?: boolean }>`
+export const Bar = styled.div<{ position: "top" | "bottom"; accent?: boolean; inCall?: boolean; hasTopElement?: boolean }>`
     z-index: 1;
     position: relative;
 
@@ -92,17 +92,25 @@ export const Bar = styled.div<{ position: "top" | "bottom"; accent?: boolean }>`
 
         ${(props) =>
             props.position === "top"
-                ? css`
-                      top: 48px;
-                      border-radius: 0 0 var(--border-radius)
-                          var(--border-radius);
-                  `
+                ? (props.hasTopElement || props.inCall)
+                    ? css`
+                          top: 0;
+                          border-radius: 0 0 var(--border-radius)
+                              var(--border-radius);
+                      `
+                    : css`
+                          top: 48px;
+                          border-radius: 0 0 var(--border-radius)
+                              var(--border-radius);
+                      `
                 : css`
                       border-radius: var(--border-radius) var(--border-radius) 0
                           0;
                   `}
 
-                  ${() =>
+        ${(props) =>
+            props.position === "top" &&
+            !(props.hasTopElement || props.inCall) &&
             isTouchscreenDevice &&
             css`
                 top: 56px;

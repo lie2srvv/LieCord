@@ -71,6 +71,7 @@ services:
       - ./data/caddy-data:/data
       - ./data/caddy-config:/config
       - ./stoat.json:/stoat.json
+      - ./web_dist/downloads:/downloads:ro
     networks:
       default:
         aliases:
@@ -122,6 +123,8 @@ services:
         source: ./Revolt.toml
         target: /Revolt.toml
     restart: always
+    ports:
+      - "127.0.0.1:14704:14704"
 
   # Metadata and image proxy
   january:

@@ -68,4 +68,34 @@ contextBridge.exposeInMainWorld("native", {
     ipcRenderer.invoke("startLinuxScreenAudio") as Promise<boolean>,
   stopLinuxScreenAudio: () =>
     ipcRenderer.invoke("stopLinuxScreenAudio") as Promise<boolean>,
+
+  // Notification APIs
+  showNotification: (data: {
+    title: string;
+    body: string;
+    iconUrl?: string | null;
+    channelId?: string | null;
+    messageId?: string | null;
+    silent?: boolean;
+  }) => ipcRenderer.send("showNotification", data),
+
+  showIncomingCall: (data: {
+    channelId: string;
+    callerId: string;
+    callerName: string;
+    avatarUrl?: string | null;
+  }) => ipcRenderer.send("showIncomingCall", data),
+
+  dismissIncomingCall: (channelId?: string | null) =>
+    ipcRenderer.send("dismissIncomingCall", channelId),
+
+  focusApp: () => ipcRenderer.send("focusApp"),
+
+  onNotificationClicked: (callback: (data: { channelId: string; messageId?: string }) => void) => {
+    ipcRenderer.on("notificationClicked", (_, data) => callback(data));
+  },
+
+  onIncomingCallClicked: (callback: (data: { channelId: string; action: "open" | "accept" | "decline" }) => void) => {
+    ipcRenderer.on("incomingCallClicked", (_, data) => callback(data));
+  },
 });

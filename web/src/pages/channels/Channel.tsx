@@ -49,6 +49,9 @@ const ChannelContent = styled.div.attrs({
     display: flex;
     overflow: hidden;
     flex-direction: column;
+    position: relative;
+    height: 100%;
+    min-height: 0;
 `;
 
 const PlaceholderBase = styled.div`
@@ -237,7 +240,12 @@ const TextChannel = observer(({ channel }: { channel: ChannelI }) => {
             <ChannelHeader channel={channel} />
             <ChannelMain>
                 <ErrorBoundary section="renderer">
-                    <ChannelContent>
+                    <ChannelContent
+                        onScroll={(e) => {
+                            if (e.currentTarget.scrollTop > 0) {
+                                e.currentTarget.scrollTop = 0;
+                            }
+                        }}>
                         <VoiceHeader id={channel._id} />
                         <VoiceCallBanner channel={channel} />
                         <NewMessages channel={channel} last_id={lastId} />

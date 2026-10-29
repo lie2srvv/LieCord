@@ -1,17 +1,21 @@
 import { Docked, OverlappingPanels, ShowIf } from "react-overlapping-panels";
-import { Switch, Route, useLocation, Link } from "react-router-dom";
+import { Switch, Route, useLocation, Link, useHistory } from "react-router-dom";
+import { modalController } from "../controllers/modals/ModalController";
 import styled, { css } from "styled-components/macro";
 
 import { useEffect, useState } from "preact/hooks";
 
 import ContextMenus from "../lib/ContextMenus";
 import { isTouchscreenDevice } from "../lib/isTouchscreenDevice";
+import { shouldShowTitlebar } from "../lib/nativePlatform";
 
 import { IncomingCallModal } from "../components/common/voice/IncomingCallModal";
+import { VoiceConnectingToast } from "../components/common/voice/VoiceConnectingToast";
 import { Titlebar } from "../components/native/Titlebar";
 import BottomNavigation from "../components/navigation/BottomNavigation";
 import LeftSidebar from "../components/navigation/LeftSidebar";
 import RightSidebar from "../components/navigation/RightSidebar";
+import { useClient } from "../controllers/client/ClientController";
 import { useSystemAlert } from "../updateWorker";
 import Open from "./Open";
 import Channel from "./channels/Channel";
@@ -66,6 +70,7 @@ export const StatusBar = styled.div`
 
 const Routes = styled.div.attrs({ "data-component": "routes" })<{
     borders: boolean;
+    hasLeftPanel?: boolean;
 }>`
     min-width: 0;
     display: flex;
@@ -74,39 +79,168 @@ const Routes = styled.div.attrs({ "data-component": "routes" })<{
 
     background: var(--primary-background);
 
+    ${(props) =>
+        props.hasLeftPanel &&
+        css`
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+        `}
+
     ${() =>
         isTouchscreenDevice &&
         css`
             overflow: hidden;
         `}
-
-    ${(props) =>
-        props.borders &&
-        css`
-            border-start-start-radius: 8px;
-        `}
 `;
 
 export default function App() {
+    const history = useHistory();
     const path = useLocation().pathname;
     const fixedBottomNav =
         path === "/" ||
         path === "/settings" ||
         path.startsWith("/friends") ||
         path.startsWith("/discover");
+    const client = useClient();
     const inChannel = path.includes("/channel");
     const inServer = path.includes("/server");
+
     const inSpecial =
         (path.startsWith("/friends") && isTouchscreenDevice) ||
         path.startsWith("/invite") ||
         path.includes("/settings");
 
+    // Extract channel ID from path: /channel/:id or /server/:server/channel/:id
+    const channelMatch = path.match(/\/channel\/([0-9A-Za-z]+)/);
+    const channelId = channelMatch ? channelMatch[1] : null;
+    const currentChannel = channelId ? client?.channels?.get(channelId) : null;
+    // Right panel (members list) only exists for Group and TextChannel on servers, NOT in Direct Messages
+    const hasRightPanel =
+        !inSpecial &&
+        inChannel &&
+        (inServer || currentChannel?.channel_type === "Group" || currentChannel?.channel_type === "TextChannel");
+
     const alert = useSystemAlert();
     const [statusBar, setStatusBar] = useState(false);
     useEffect(() => setStatusBar(true), [alert]);
 
+    const showTitlebar = shouldShowTitlebar();
+
+    // Handle Android system back gesture / back button
+    useEffect(() => {
+        let openedLeftFromBack = false;
+        let openedLeftTime = 0;
+
+        const onTouch = () => {
+            openedLeftFromBack = false;
+        };
+        window.addEventListener("touchstart", onTouch, { passive: true });
+
+        (window as any).handleAndroidBack = () => {
+            // 0. If fullscreen video or screen stream is active, exit fullscreen
+            if (typeof (window as any).__liecordExitFullscreen === "function") {
+                const handled = (window as any).__liecordExitFullscreen();
+                if (handled) return true;
+            }
+            // 1. If a modal is open, close/cancel it
+            if (modalController.stack.length > 0) {
+                modalController.pop("close");
+                return true;
+            }
+
+            // 2. If a popup context menu is open, dismiss it
+            const ctxMenu = document.querySelector('[class*="ContextMenuOverlay"]') as HTMLElement | null;
+            if (ctxMenu) {
+                ctxMenu.click();
+                return true;
+            }
+
+            // 3. If in Settings or other subpages, navigate back inside settings first
+            const curPath = window.location.pathname;
+            if (curPath.includes("/settings")) {
+                // If inside a settings subpage like /settings/sessions, go back to main /settings list
+                if (curPath.startsWith("/settings/") && curPath !== "/settings") {
+                    history.replace("/settings");
+                    return true;
+                }
+                // If at the root of /settings, exit settings to the previous screen or home
+                if (window.history.length > 1) {
+                    history.goBack();
+                } else {
+                    history.push("/");
+                }
+                return true;
+            }
+
+            // 4. Check mobile sliding panels (OverlappingPanels)
+            const snapEl = (document.querySelector("._2PvlZ") ||
+                document.querySelector('[class*="snap"]') ||
+                document.querySelector("._3IMWP > div") ||
+                Array.from(document.querySelectorAll("div")).find(
+                    (d) =>
+                        d.style.gridTemplateColumns &&
+                        (d.scrollWidth > d.clientWidth || d.style.overflowX === "scroll")
+                )) as HTMLDivElement | null;
+
+            if (snapEl) {
+                const scrollLeft = snapEl.scrollLeft;
+                const leftWidth = 290;
+
+                // Right panel (members) is visible -> smoothly return to center chat
+                if (scrollLeft > leftWidth + 40) {
+                    snapEl.scrollTo({ left: leftWidth, behavior: "smooth" });
+                    return true;
+                }
+
+                // Left panel (channels / conversations list) is visible
+                if (scrollLeft < 40) {
+                    if (openedLeftFromBack && Date.now() - openedLeftTime < 3500) {
+                        openedLeftFromBack = false;
+                        return false;
+                    }
+                    if (inChannel) {
+                        snapEl.scrollTo({ left: leftWidth, behavior: "smooth" });
+                        return true;
+                    }
+                    return false;
+                }
+
+                // In center chat -> smoothly open left panel (conversations / server channels)
+                if (Math.abs(scrollLeft - leftWidth) <= 40 || !inChannel) {
+                    openedLeftFromBack = true;
+                    openedLeftTime = Date.now();
+                    snapEl.scrollTo({ left: 0, behavior: "smooth" });
+                    return true;
+                }
+            }
+
+            if (curPath.startsWith("/friends") || curPath.startsWith("/discover") || curPath.startsWith("/dev")) {
+                if (curPath !== "/") {
+                    if (window.history.length > 1) {
+                        history.goBack();
+                    } else {
+                        history.push("/");
+                    }
+                    return true;
+                }
+            }
+
+            if (window.history.length > 1 && !inChannel) {
+                history.goBack();
+                return true;
+            }
+
+            return false;
+        };
+
+        return () => {
+            window.removeEventListener("touchstart", onTouch);
+            delete (window as any).handleAndroidBack;
+        };
+    }, [history, inChannel]);
+
     return (
         <>
+            <VoiceConnectingToast />
             <IncomingCallModal />
             {alert && statusBar && (
                 <StatusBar>
@@ -135,14 +269,12 @@ export default function App() {
                 </StatusBar>
             )}
             <AppContainer>
-                {window.isNative && !window.native.getConfig().frame && (
-                    <Titlebar />
-                )}
+                {showTitlebar && <Titlebar />}
                 <OverlappingPanels
                     width="100vw"
                     height={
                         (alert && statusBar ? "calc(" : "") +
-                        (window.isNative && !window.native.getConfig().frame
+                        (showTitlebar
                             ? "calc(var(--app-height) - var(--titlebar-height))"
                             : "var(--app-height)") +
                         (alert && statusBar ? " - 40px)" : "")
@@ -153,17 +285,17 @@ export default function App() {
                             : { width: 290, component: <LeftSidebar /> }
                     }
                     rightPanel={
-                        !inSpecial && inChannel
+                        hasRightPanel
                             ? { width: 236, component: <RightSidebar /> }
                             : undefined
                     }
                     bottomNav={{
                         component: <BottomNavigation />,
                         showIf: fixedBottomNav ? ShowIf.Always : ShowIf.Left,
-                        height: 50,
+                        height: 150,
                     }}
                     docked={isTouchscreenDevice ? Docked.None : Docked.Left}>
-                    <Routes borders={inServer}>
+                    <Routes hasLeftPanel={!inSpecial} borders={inServer}>
                         <Switch>
                             <Route
                                 path="/server/:server/channel/:channel/settings/:page"

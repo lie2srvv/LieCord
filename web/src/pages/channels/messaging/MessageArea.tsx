@@ -3,7 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useHistory, useParams } from "react-router-dom";
 import { animateScroll } from "react-scroll";
 import { Channel } from "revolt.js";
-import styled from "styled-components/macro";
+import styled, { css } from "styled-components/macro";
 import useResizeObserver from "use-resize-observer";
 
 import { createContext } from "preact";
@@ -28,8 +28,11 @@ import RequiresOnline from "../../../controllers/client/jsx/RequiresOnline";
 import { modalController } from "../../../controllers/modals/ModalController";
 import ConversationStart from "./ConversationStart";
 import MessageRenderer from "./MessageRenderer";
+import { voiceState } from "../../../lib/vortex/VoiceState";
 
-const Area = styled.div.attrs({ "data-scroll-offset": "with-padding" })`
+const Area = styled.div.attrs<{ hasTopElement?: boolean }>((props) => ({
+    "data-scroll-offset": props.hasTopElement ? undefined : "with-padding",
+}))<{ hasTopElement?: boolean }>`
     height: 100%;
     flex-grow: 1;
     min-height: 0;
@@ -41,6 +44,16 @@ const Area = styled.div.attrs({ "data-scroll-offset": "with-padding" })`
     &::-webkit-scrollbar-thumb {
         min-height: 150px;
     }
+
+    ${(props) =>
+        props.hasTopElement &&
+        css`
+            padding-top: 0 !important;
+
+            &::-webkit-scrollbar-thumb {
+                border-top: 0 !important;
+            }
+        `}
 
     > div {
         display: flex;
@@ -311,10 +324,15 @@ export const MessageArea = observer(({ last_id, channel }: Props) => {
         return () => document.body.removeEventListener("keyup", keyUp);
     }, [renderer, ref]);
 
+    const inCall = voiceState.roomId === channel._id;
+    const hasCallBanner =
+        voiceState.getChannelParticipants(channel._id).length > 0 && !inCall;
+    const hasTopElement = inCall || hasCallBanner;
+
     return (
         <MessageAreaWidthContext.Provider
             value={(width ?? 0) - MESSAGE_AREA_PADDING}>
-            <Area ref={ref}>
+            <Area ref={ref} hasTopElement={hasTopElement}>
                 <div>
                     {renderer.state === "LOADING" && <Preloader type="ring" />}
                     {renderer.state === "WAITING_FOR_NETWORK" && (

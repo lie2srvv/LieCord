@@ -4,7 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import { Button, CategoryButton, Checkbox, Tip } from "@revoltchat/ui";
 
-import RLogo from "../assets/revolt_r.svg";
+const LieCordLogo = "/assets/logo.png";
 
 export function Native() {
     if (typeof window.native === "undefined") return null;
@@ -83,31 +83,19 @@ export function Native() {
 
             <h3>Titlebar</h3>
             <Checkbox
-                value={!config.frame}
-                onChange={(frame) => {
-                    window.native.set("frame", !frame);
+                value={config.customFrame ?? !config.frame ?? true}
+                onChange={(customFrame) => {
+                    window.native.set("customFrame", customFrame);
+                    window.native.set("frame", !customFrame);
                     setHintRelaunch(true);
                     setConfig({
                         ...config,
-                        frame: !frame,
+                        customFrame,
+                        frame: !customFrame,
                     });
                 }}
                 title="Custom window frame"
                 description="Let LieCord use its own window frame."
-            />
-            <Checkbox //FIXME: In Titlebar.tsx, enable .quick css
-                disabled={true}
-                value={!config.frame}
-                onChange={(frame) => {
-                    window.native.set("frame", !frame);
-                    setHintRelaunch(true);
-                    setConfig({
-                        ...config,
-                        frame: !frame,
-                    });
-                }}
-                title="Enable quick action buttons"
-                description="Show mute/deafen buttons on the titlebar."
             />
             <h3>Advanced</h3>
             <Checkbox
@@ -143,64 +131,9 @@ export function Native() {
                     Reload App
                 </Button>
             </p>
-            <h3 style={{ marginTop: "4em" }}>Local Development Mode</h3>
-            {/*config.build === "dev" ? (
-                <>
-                    <h5>Development mode is currently on.</h5>
-                    <Button
-                        palette="secondary"
-                        compact
-                        onClick={() => {
-                            window.native.set("build", "stable");
-                            window.native.reload();
-                        }}>
-                        Exit Development Mode
-                    </Button>
-                </>
-            ) : (
-                <>
-                    <Checkbox
-                        value={confirmDev}
-                        onChange={setConfirmDev}
-                        title="I understand there's no going back."
-                        description={
-                            <>
-                                {
-                                    "This will change the app to the 'dev' branch, instead loading the app from a local server on your machine."
-                                }
-                                <br />
-                                <b>
-                                    {"Without a server running, "}
-                                    <span style={{ color: "var(--error)" }}>
-                                        {"the app will not load!"}
-                                    </span>
-                                </b>
-                                <br />
-                                {
-                                    "Make sure the app is available on port 3001 by running "
-                                }
-                                <code>{"yarn dev --port 3001 --host"}</code>
-                                {"."}
-                            </>
-                        }
-                    />
-                    <p>
-                        <Button
-                            palette="error"
-                            compact
-                            disabled={!confirmDev}
-                            onClick={() => {
-                                window.native.set("build", "dev");
-                                window.native.reload();
-                            }}>
-                            Enter Development Mode
-                        </Button>
-                    </p>
-                </>
-            )*/}
             <hr />
             <CategoryButton
-                icon={<img src={RLogo} draggable={false} />}
+                icon={<img src={LieCordLogo} draggable={false} style={{ width: 24, height: 24, borderRadius: 6 }} />}
                 description={<span>version {window.nativeVersion}</span>}
                 action={<Refresh size={24} />}>
                 LieCord Desktop

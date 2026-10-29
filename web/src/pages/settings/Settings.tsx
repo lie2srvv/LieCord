@@ -195,11 +195,7 @@ export default observer(() => {
                     icon: <Desktop size={20} />,
                     title: <Text id="app.settings.pages.native.title" />,
                 },
-                {
-                    id: "experiments",
-                    icon: <Flask size={20} />,
-                    title: <Text id="app.settings.pages.experiments.title" />,
-                },
+
                 {
                     divider: true,
                     category: "LieCord",
@@ -239,9 +235,7 @@ export default observer(() => {
                     <Route path="/settings/native">
                         <Native />
                     </Route>
-                    <Route path="/settings/experiments">
-                        <ExperimentsPage />
-                    </Route>
+
                     <Route path="/settings/bots">
                         <MyBots />
                     </Route>
