@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./liecord_logo.png" alt="LieCord Logo" width="130" style="border-radius: 50%; margin-bottom: 14px;" />
+<img src="./liecord_logo.png" alt="LieCord Logo" width="120" style="border-radius: 50%; margin-bottom: 12px;" />
 
 # 🦊 LieCord
 
@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Security Hardened](https://img.shields.io/badge/security-E2EE%20%26%20HSTS%20hardened-orange?style=flat-square&color=f59e0b)](https://cord.lie2srvv.com)
 
-[**🌐 Open Web App**](https://cord.lie2srvv.com) • [**📥 Download Clients**](https://cord.lie2srvv.com/downloads) • [**📖 Documentation**](#-architecture--repository-layout)
+[**🌐 Open Web App**](https://cord.lie2srvv.com) • [**📥 Download Clients**](https://cord.lie2srvv.com/downloads)
 
 </div>
 
@@ -19,9 +19,9 @@
 
 ## ✨ Overview
 
-**LieCord** is an open-source, highly responsive communication platform engineered for seamless voice, video, text, and screen sharing across all operating systems. 
+**LieCord** is an open-source, highly responsive communication platform engineered for seamless voice, video, text, and screen sharing across all modern operating systems. 
 
-Built on a hardened distributed microservices architecture, LieCord gives users total ownership over their identity, messages, and calls without telemetry, forced ads, or corporate tracking.
+Built on a hardened distributed architecture, LieCord gives users total ownership over their identity, messages, and calls without telemetry, forced ads, or corporate tracking.
 
 ---
 
@@ -30,7 +30,7 @@ Built on a hardened distributed microservices architecture, LieCord gives users 
 ### 🎧 Voice & Ultra-HD Screen Sharing
 - **Adaptive WebRTC Engine**: Powered by LiveKit & Vortex with intelligent bitrate scaling.
 - **Crystal Clear Screen Sharing**: Resolutions from **480p up to UHD 4K (60 FPS)** with desktop audio capture on Linux (PipeWire/PulseAudio), Windows, and macOS.
-- **Bandwidth Optimization**: Automatic freeze-frame snapshots for inactive streams, on-demand video subscription, and zero frame-dropping preview modes.
+- **Bandwidth Optimization**: Automatic freeze-frame snapshots for inactive streams, on-demand subscriptions, and zero frame-dropping preview modes.
 - **Voice Clarity**: Integrated smart noise gating, high-pass filtering, and typing noise suppression.
 
 ### 🖼️ Next-Gen Media Engine
@@ -46,71 +46,11 @@ Built on a hardened distributed microservices architecture, LieCord gives users 
 ### 🔒 Privacy & Defense-in-Depth
 - **End-to-End Encryption (E2EE)**: Direct messaging client-side encryption.
 - **Hardened Edge**: Reverse proxy secured with Strict-Transport-Security (HSTS), strict Content-Security-Policy (CSP), framing restrictions, and authenticated session tokens.
-- **No Secret Leaks**: Production configurations and encryption keys are strictly decoupled from source code.
+- **Zero Telemetry**: No third-party analytics, user tracking, or telemetry collection.
 
 ---
 
-## 🏗 Architecture & Repository Layout
-
-```text
-LieCord/
-├── 🌐 web/                  # Web Client (Preact + TypeScript + MobX + SCSS)
-│   ├── src/controllers/     # Modals, Sessions, and State Management
-│   ├── src/lib/vortex/      # WebRTC Voice & Screen Sharing Engine
-│   └── src/pages/           # Chat, Voice, Server & Settings views
-├── 💻 desktop/              # Desktop App (Electron Forge + TypeScript + Vite)
-│   ├── src/native/          # OS-level Tray, D-Bus Notifications & Windowing
-│   └── assets/              # App icons (PNG, ICO, ICNS)
-├── 📱 android/              # Android App (Kotlin + Jetpack Compose + WebRTC)
-│   ├── app/src/main/java/   # Push services, Call action receivers & Screens
-│   └── app/build.gradle.kts # Dynamic keystore signing pipeline
-├── ⚙️ server/               # Infrastructure & Backend Configs
-│   ├── Caddyfile            # Hardened edge routing, SSL, CSP & HSTS
-│   ├── media_proxy.py       # High-performance media transcoding proxy (FFmpeg)
-│   └── compose.yml          # Containerized microservice orchestration
-└── 🤖 .github/workflows/    # Automated CI pipelines (Android APK, macOS, Windows)
-```
-
----
-
-## 🛠 Getting Started
-
-### Prerequisites
-- **Node.js**: `v20.x` or `v22.x`
-- **Yarn**: `3.x+`
-- **Python**: `3.10+` (for server utilities and media proxy)
-- **FFmpeg**: (with `libwebp` support for media transcoding)
-
-### 1. Web Client
-```bash
-cd web
-yarn install
-yarn dev
-```
-Open [http://localhost:5000](http://localhost:5000) to view the client.
-
-### 2. Desktop Client
-```bash
-cd desktop
-npm install
-npm start
-```
-To package installers for your operating system:
-```bash
-npm run make
-```
-
-### 3. Android Client
-Ensure Android SDK is configured, then build the APK:
-```bash
-cd android
-./gradlew assembleDebug
-```
-The output APK will be generated at `android/app/build/outputs/apk/debug/app-debug.apk`.
-
----
-
-## 📦 Downloads & Web Access
+## 📦 Downloads & Access
 
 Official builds and client downloads are available directly at:
 👉 **[https://cord.lie2srvv.com/downloads](https://cord.lie2srvv.com/downloads)**
