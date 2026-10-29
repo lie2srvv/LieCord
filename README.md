@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./liecord_logo.png" alt="LieCord Banner" width="100%" style="border-radius: 16px; margin-bottom: 24px;" />
+<img src="./liecord_logo.png" alt="LieCord Logo" width="130" style="border-radius: 50%; margin-bottom: 14px;" />
 
 # 🦊 LieCord
 
