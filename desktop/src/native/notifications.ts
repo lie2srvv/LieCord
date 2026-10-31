@@ -24,6 +24,7 @@ interface IncomingCallPayload {
   avatarUrl?: string | null;
 }
 
+const MAX_ACTIVE_NOTIFICATIONS = 30;
 const activeNotifications: Map<string, Notification> = new Map();
 let currentIncomingCallNotification: Notification | null = null;
 let currentCallChannelId: string | null = null;
@@ -35,6 +36,54 @@ try {
   fs.mkdirSync(avatarCacheDir, { recursive: true });
 } catch (e) {
   console.error("Failed to create avatarCacheDir:", e);
+}
+
+/**
+ * Clean up avatar cache files older than 7 days to prevent unbounded disk growth
+ */
+function cleanAvatarCache() {
+  try {
+    if (!fs.existsSync(avatarCacheDir)) return;
+    const files = fs.readdirSync(avatarCacheDir);
+    const now = Date.now();
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+    for (const file of files) {
+      try {
+        const filePath = path.join(avatarCacheDir, file);
+        const stat = fs.statSync(filePath);
+        if (now - stat.mtimeMs > maxAgeMs) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.warn("[Notifications] Failed to clean avatar cache:", err);
+  }
+}
+
+/**
+ * Register notification in Map with LRU eviction to prevent memory accumulation
+ */
+function trackNotification(key: string, notification: Notification) {
+  const prevNotif = activeNotifications.get(key);
+  if (prevNotif) {
+    try {
+      prevNotif.close();
+    } catch (_) {}
+  }
+
+  if (activeNotifications.size >= MAX_ACTIVE_NOTIFICATIONS) {
+    const oldestKey = activeNotifications.keys().next().value;
+    if (oldestKey) {
+      const oldNotif = activeNotifications.get(oldestKey);
+      try {
+        oldNotif?.close();
+      } catch (_) {}
+      activeNotifications.delete(oldestKey);
+    }
+  }
+
+  activeNotifications.set(key, notification);
 }
 
 /**
@@ -122,13 +171,12 @@ function stopFlash() {
 }
 
 export function initNotifications() {
-  // Sync Windows AppUserModelId with Squirrel and direct executable names
+  // Clean avatar cache on startup
+  cleanAvatarCache();
+
+  // Sync Windows AppUserModelId with Squirrel shortcut
   if (process.platform === "win32") {
-    try {
-      app.setAppUserModelId("com.squirrel.LieCord.liecord-desktop");
-    } catch (e) {
-      console.error("Failed to set appUserModelId:", e);
-    }
+    app.setAppUserModelId("com.squirrel.LieCord.liecord-desktop");
   }
 
   // IPC Handler: Standard Message / Mention Notification
@@ -158,11 +206,7 @@ export function initNotifications() {
     });
 
     const notifKey = channelId || `notif_${Date.now()}`;
-    const prevNotif = activeNotifications.get(notifKey);
-    if (prevNotif) {
-      prevNotif.close();
-    }
-    activeNotifications.set(notifKey, notification);
+    trackNotification(notifKey, notification);
 
     notification.on("click", () => {
       restoreAndFocusWindow();

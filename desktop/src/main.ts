@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { IUpdateInfo, updateElectronApp } from "update-electron-app";
 
-import { BrowserWindow, Notification, app, shell, systemPreferences } from "electron";
+import { BrowserWindow, Notification, app, powerMonitor, shell, systemPreferences } from "electron";
 import started from "electron-squirrel-startup";
 
 import { initAutoLaunch } from "./native/autoLaunch";
@@ -12,6 +12,9 @@ import { initTray } from "./native/tray";
 import { initVirtualMic } from "./native/virtualMic";
 import { initNotifications } from "./native/notifications";
 import { BUILD_URL, createMainWindow, mainWindow } from "./native/window";
+
+// Limit V8 heap to prevent unnecessary RAM accumulation across long sessions
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=512");
 
 // In Flatpak, we have to update the temp dir to a shared directory across host and sandbox;
 // otherwise, the icon will not show up in the tray when using app indicators.
@@ -60,6 +63,13 @@ if (acquiredLock) {
 
   // create and configure the app when electron is ready
   app.on("ready", async () => {
+    powerMonitor.on("suspend", () => {
+      console.log("[Desktop] System entered sleep/suspend mode");
+    });
+    powerMonitor.on("resume", () => {
+      console.log("[Desktop] System resumed from sleep");
+    });
+
     // On macOS, request microphone access BEFORE creating the window
     // This ensures the TCC permission dialog appears immediately on first launch
     if (process.platform === "darwin") {

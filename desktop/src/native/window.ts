@@ -39,6 +39,30 @@ let pendingScreenAudio: boolean = false;
 const windowIcon = nativeImage.createFromDataURL(windowIconAsset);
 
 /**
+ * Validate that an origin matches our trusted application host
+ */
+function isAllowedOrigin(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === BUILD_URL.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Safely unload a PulseAudio module by ensuring its ID is strictly numeric
+ */
+function safeUnloadAudioModule(id: string | null) {
+  if (id && /^\d+$/.test(id)) {
+    try {
+      execSync(`pactl unload-module ${id}`);
+    } catch (_) {}
+  }
+}
+
+/**
  * Create the main application window
  */
 export function createMainWindow() {
@@ -62,9 +86,9 @@ export function createMainWindow() {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
       spellcheck: true,
-      devTools: !app.isPackaged,
+      devTools: true,
     },
   });
 
@@ -300,145 +324,47 @@ export function createMainWindow() {
     },
   );
 
-  let originalDefaultSink: string | null = null;
-  let shareSinkModuleId: string | null = null;
-  let loopbackModuleId: string | null = null;
-  let remapSourceModuleId: string | null = null;
-  let isolationInterval: NodeJS.Timeout | null = null;
-
-  function isolateLieCordFromStream(targetSink: string) {
-    try {
-      const output = execSync("pactl list sink-inputs", { stdio: ["pipe", "pipe", "ignore"] }).toString();
-      const blocks = output.split(/Sink Input #/);
-      for (const block of blocks) {
-        if (!block.trim()) continue;
-        const idMatch = block.match(/^(\d+)/);
-        if (!idMatch) continue;
-        const inputId = idMatch[1];
-        if (
-          /application\.name\s*=\s*"LieCord"|application\.process\.binary\s*=\s*"liecord-desktop"/i.test(
-            block,
-          )
-        ) {
-          try {
-            execFileSync("pactl", ["move-sink-input", inputId, targetSink], {
-              stdio: ["ignore", "ignore", "ignore"],
-            });
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
-  }
-
-  function cleanupLinuxScreenAudio() {
-    if (isolationInterval) {
-      clearInterval(isolationInterval);
-      isolationInterval = null;
-    }
-    if (originalDefaultSink) {
-      try {
-        execFileSync("pactl", ["set-default-sink", originalDefaultSink], {
-          stdio: ["ignore", "ignore", "ignore"],
-        });
-      } catch (_) {}
-    }
-    if (remapSourceModuleId) {
-      try {
-        execSync(`pactl unload-module ${remapSourceModuleId}`, {
-          stdio: ["ignore", "ignore", "ignore"],
-        });
-      } catch (_) {}
-      remapSourceModuleId = null;
-    }
-    if (loopbackModuleId) {
-      try {
-        execSync(`pactl unload-module ${loopbackModuleId}`, {
-          stdio: ["ignore", "ignore", "ignore"],
-        });
-      } catch (_) {}
-      loopbackModuleId = null;
-    }
-    if (shareSinkModuleId) {
-      try {
-        execSync(`pactl unload-module ${shareSinkModuleId}`, {
-          stdio: ["ignore", "ignore", "ignore"],
-        });
-      } catch (_) {}
-      shareSinkModuleId = null;
-    }
-    originalDefaultSink = null;
-  }
+  let linuxAudioModuleId: string | null = null;
 
   ipcMain.handle("startLinuxScreenAudio", async () => {
     if (process.platform !== "linux") return false;
-    cleanupLinuxScreenAudio();
-
-    try {
-      // 1. Get physical default sink (user's headphones/speakers)
-      const currentSink = execSync("pactl get-default-sink", {
-        stdio: ["pipe", "pipe", "ignore"],
-      })
-        .toString()
-        .trim();
-      originalDefaultSink = currentSink;
-
-      // 2. Create isolated virtual sink for shared desktop audio
-      const shareSinkOut = execSync(
-        "pactl load-module module-null-sink sink_name=liecord_share_sink sink_properties=device.description=LieCord_Share_Sink",
-        { stdio: ["pipe", "pipe", "ignore"] },
-      )
-        .toString()
-        .trim();
-      shareSinkModuleId = shareSinkOut;
-
-      // 3. Loopback shared audio to physical sink so the presenter still hears their games/apps
-      const loopbackOut = execFileSync(
-        "pactl",
-        ["load-module", "module-loopback", "source=liecord_share_sink.monitor", `sink=${originalDefaultSink}`, "latency_msec=20"],
-        { stdio: ["pipe", "pipe", "ignore"] },
-      )
-        .toString()
-        .trim();
-      loopbackModuleId = loopbackOut;
-
-      // 4. Remap source for WebRTC capture
-      const remapOut = execSync(
-        "pactl load-module module-remap-source master=liecord_share_sink.monitor source_name=liecord_stream_audio source_properties=device.description=LieCord_Stream_Audio",
-        { stdio: ["pipe", "pipe", "ignore"] },
-      )
-        .toString()
-        .trim();
-      remapSourceModuleId = remapOut;
-
-      // 5. Direct system apps to liecord_share_sink
-      execSync("pactl set-default-sink liecord_share_sink", {
-        stdio: ["ignore", "ignore", "ignore"],
-      });
-
-      // 6. Keep LieCord voice outputs on physical sink (no echo!)
-      isolateLieCordFromStream(originalDefaultSink);
-      isolationInterval = setInterval(() => {
-        if (originalDefaultSink) {
-          isolateLieCordFromStream(originalDefaultSink);
-        }
-      }, 1500);
-
-      console.info("[Linux Audio] Stream audio initialized with echo isolation");
-      return true;
-    } catch (err) {
-      console.warn("[Linux Audio] startLinuxScreenAudio failed:", err);
-      cleanupLinuxScreenAudio();
-      return false;
-    }
+    return new Promise((resolve) => {
+      if (linuxAudioModuleId) {
+        safeUnloadAudioModule(linuxAudioModuleId);
+        linuxAudioModuleId = null;
+      }
+      exec(
+        "pactl load-module module-remap-source master=@DEFAULT_SINK@.monitor source_name=liecord_stream_audio source_properties=device.description=LieCord_Stream_Audio",
+        (err, stdout) => {
+          if (err || !stdout.trim()) {
+            console.warn("[Linux Audio] pactl load-module failed:", err);
+            resolve(false);
+          } else {
+            linuxAudioModuleId = stdout.trim();
+            console.info(
+              "[Linux Audio] Loaded stream audio module:",
+              linuxAudioModuleId,
+            );
+            resolve(true);
+          }
+        },
+      );
+    });
   });
 
   ipcMain.handle("stopLinuxScreenAudio", async () => {
-    cleanupLinuxScreenAudio();
+    if (linuxAudioModuleId) {
+      safeUnloadAudioModule(linuxAudioModuleId);
+      linuxAudioModuleId = null;
+    }
     return true;
   });
 
   app.on("before-quit", () => {
-    cleanupLinuxScreenAudio();
+    if (linuxAudioModuleId) {
+      safeUnloadAudioModule(linuxAudioModuleId);
+      linuxAudioModuleId = null;
+    }
   });
 
   ipcMain.handle("requestMicrophoneAccess", async () => {
@@ -466,9 +392,15 @@ export function createMainWindow() {
     return true;
   });
 
-  // Automatically grant media & notification permissions without repeated prompts
+  // Automatically grant media & notification permissions without repeated prompts,
+  // strictly enforcing that requests originate only from our trusted BUILD_URL host.
   session.defaultSession.setPermissionRequestHandler(
     async (webContents, permission, callback) => {
+      if (!isAllowedOrigin(webContents.getURL())) {
+        console.warn(`[Security] Blocked permission ${permission} for untrusted origin: ${webContents.getURL()}`);
+        return callback(false);
+      }
+
       const allowed = [
         "media",
         "audio-capture",
@@ -519,6 +451,10 @@ export function createMainWindow() {
 
   session.defaultSession.setPermissionCheckHandler(
     (webContents, permission) => {
+      if (!isAllowedOrigin(webContents.getURL())) {
+        return false;
+      }
+
       const allowed = [
         "media",
         "audio-capture",

@@ -59,8 +59,7 @@ const makers: ForgeConfig["makers"] = [
       categories: ["Network"],
       modules: [
         // use the latest zypak -- Electron sandboxing for Flatpak
-        {
-          name: "zypak",
+        {\n          name: "zypak",
           sources: [
             {
               type: "git",

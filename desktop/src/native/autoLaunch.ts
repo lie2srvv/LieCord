@@ -1,9 +1,9 @@
 import AutoLaunch from "auto-launch";
-
-import { ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 
 export const autoLaunch = new AutoLaunch({
   name: "LieCord",
+  path: app.getPath("exe"),
 });
 
 export function initAutoLaunch() {
