@@ -1,19 +1,19 @@
 <div align="center">
 <h1>
-  Stoat Self-Hosted
+  LieCord Self-Hosted
   
-  [![Stars](https://img.shields.io/github/stars/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/stargazers)
-  [![Forks](https://img.shields.io/github/forks/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/network/members)
-  [![Pull Requests](https://img.shields.io/github/issues-pr/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/pulls)
-  [![Issues](https://img.shields.io/github/issues/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/issues)
-  [![Contributors](https://img.shields.io/github/contributors/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/graphs/contributors)
-  [![License](https://img.shields.io/github/license/stoatchat/self-hosted?style=flat-square&logoColor=white)](https://github.com/stoatchat/self-hosted/blob/main/LICENSE)
+  [![Stars](https://img.shields.io/github/stars/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/stargazers)
+  [![Forks](https://img.shields.io/github/forks/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/network/members)
+  [![Pull Requests](https://img.shields.io/github/issues-pr/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/pulls)
+  [![Issues](https://img.shields.io/github/issues/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/issues)
+  [![Contributors](https://img.shields.io/github/contributors/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/graphs/contributors)
+  [![License](https://img.shields.io/github/license/lie2srvv/self-hosted?style=flat-square&logoColor=white)](https://github.com/lie2srvv/self-hosted/blob/main/LICENSE)
 </h1>
-Self-hosting Stoat using Docker
+Self-hosting LieCord using Docker
 </div>
 <br/>
 
-This repository contains configurations and instructions that can be used for deploying a full instance of Stoat, including the back-end, web front-end, file server, and metadata and image proxy.
+This repository contains configurations and instructions that can be used for deploying a full instance of LieCord, including the back-end, web front-end, file server, and metadata and image proxy.
 
 ## Table of Contents
 
@@ -47,7 +47,7 @@ This repository contains configurations and instructions that can be used for de
 > Currently, most official clients do not support self-hosted instances. The web client works well, and when you use the [PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app) the experience is close to a native app. For more instructions regarding clients please see the [Guides](Guides.md) section of the readme.
 
 > [!NOTE]
-> Please consult _[What can I do with Stoat and how do I self-host?](https://developers.stoat.chat/faq)_ on our developer site for information about licensing and brand use.
+> Please consult _[What can I do with LieCord and how do I self-host?](https://developers.stoat.chat/faq)_ on our developer site for information about licensing and brand use.
 
 > [!TIP]
 > For guides on how to perform common configuration alterations like using NGINX or setting your instance to invite only, see the [Guides](Guides.md) section of the readme.
@@ -163,10 +163,10 @@ apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docke
 
 ## Configuration
 
-Now, we can pull in the configuration for Stoat:
+Now, we can pull in the configuration for LieCord:
 
 ```bash
-git clone https://github.com/stoatchat/self-hosted stoat
+git clone https://github.com/lie2srvv/self-hosted stoat
 cd stoat
 ```
 
@@ -177,9 +177,9 @@ chmod +x ./generate_config.sh
 ./generate_config.sh your.domain
 ```
 
-The generate_config.sh script will create the neccessary secrets required to create a Stoat instance, and the secrets will be inserted into a file named `secrets.env`. You should back up this file, as losing it may result in you losing access to all files on your Stoat instance.
+The generate_config.sh script will create the neccessary secrets required to create a LieCord instance, and the secrets will be inserted into a file named `secrets.env`. You should back up this file, as losing it may result in you losing access to all files on your LieCord instance.
 
-You can find [more options here](https://github.com/stoatchat/stoatchat/blob/main/crates/core/config/Revolt.toml), some noteworthy configuration options:
+You can find [more options here](https://github.com/lie2srvv/lie2srvv/blob/main/crates/core/config/Revolt.toml), some noteworthy configuration options:
 
 - Email verification
 - Captcha
@@ -192,7 +192,7 @@ If you'd like to edit the configuration, just run:
 micro Revolt.toml
 ```
 
-Finally, we can start up Stoat. First, run it in the foreground with:
+Finally, we can start up LieCord. First, run it in the foreground with:
 
 ```bash
 docker compose up
@@ -238,9 +238,9 @@ docker compose up -d
 
 ### Placing Behind Another Reverse-Proxy or Another Port
 
-During configuration using `generate_config.sh` you will be asked if you'd like to place Stoat behind another reverse proxy. Enter `y` to configure for reverse proxy. This will expose your caddy on port 8880, and you can reverse proxy to <http://localhost:8880>
+During configuration using `generate_config.sh` you will be asked if you'd like to place LieCord behind another reverse proxy. Enter `y` to configure for reverse proxy. This will expose your caddy on port 8880, and you can reverse proxy to <http://localhost:8880>
 
-See [guides](Guides.md) for more information about placing Stoat behind other reverse proxies.
+See [guides](Guides.md) for more information about placing LieCord behind other reverse proxies.
 
 ### Insecurely Expose the Database
 
@@ -288,20 +288,20 @@ Livekit requires ports 7881/tcp and 50000-50100/udp to be openly accessible on t
 
 ### Getting kicked on video enabled instances when turning on video
 
-Due to an incomplete implementation, Stoat will kick any user that attempts to stream a video that is larger than the maximum size defined in `Revolt.toml`. If you would like to increase the maximum size allowed on your Stoat instance, you can do so by modifying the `video_resolution` field under `[features.limits.new_user]` and `[features.limits.default]` to a larger value in your `Revolt.toml`. For example, 4k would be : `[3996, 2160]`.
+Due to an incomplete implementation, LieCord will kick any user that attempts to stream a video that is larger than the maximum size defined in `Revolt.toml`. If you would like to increase the maximum size allowed on your LieCord instance, you can do so by modifying the `video_resolution` field under `[features.limits.new_user]` and `[features.limits.default]` to a larger value in your `Revolt.toml`. For example, 4k would be : `[3996, 2160]`.
 
 ## Notices
 
 <details>
-<summary>If you deployed Stoat before October 5, 2025...</summary>
+<summary>If you deployed LieCord before October 5, 2025...</summary>
 
-> If you deployed Stoat before [2022-10-29](https://github.com/minio/docs/issues/624#issuecomment-1296608406), you may have to tag the `minio` image release if it's configured in "fs" mode.
+> If you deployed LieCord before [2022-10-29](https://github.com/minio/docs/issues/624#issuecomment-1296608406), you may have to tag the `minio` image release if it's configured in "fs" mode.
 >
 > ```yml
 > image: minio/minio:RELEASE.2022-10-24T18-35-07Z
 > ```
 
-> If you deployed Stoat before [2023-04-21](https://github.com/stoatchat/stoatchat/commit/32542a822e3de0fc8cc7b29af46c54a9284ee2de), you may have to flush your Redis database.
+> If you deployed LieCord before [2023-04-21](https://github.com/lie2srvv/lie2srvv/commit/32542a822e3de0fc8cc7b29af46c54a9284ee2de), you may have to flush your Redis database.
 >
 > ```bash
 > # for stock Redis and older KeyDB images:
@@ -352,7 +352,7 @@ Due to an incomplete implementation, Stoat will kick any user that attempts to s
 >
 > The following components have been added to the compose file:
 >
-> - Added `rabbit` (RabbitMQ) and `pushd` (Stoat push daemon)
+> - Added `rabbit` (RabbitMQ) and `pushd` (LieCord push daemon)
 
 > As of October 5, 2025, the following breaking changes have been applied:
 >
@@ -366,7 +366,7 @@ Due to an incomplete implementation, Stoat will kick any user that attempts to s
 <br />
 
 > [!IMPORTANT]
-> As of February 28, 2026, the configuration script will load secrets into `secrets.env`. You must copy your existing secrets into secrets.env to prevent `generate_config.sh` from overwriting your secrets. If your secrets are overwritten you will lose access to all files on your Stoat instance.
+> As of February 28, 2026, the configuration script will load secrets into `secrets.env`. You must copy your existing secrets into secrets.env to prevent `generate_config.sh` from overwriting your secrets. If your secrets are overwritten you will lose access to all files on your LieCord instance.
 >
 > Copy secrets.env.example to secrets.env
 >
@@ -383,7 +383,7 @@ Due to an incomplete implementation, Stoat will kick any user that attempts to s
 > All of your secrets can be found in `Revolt.toml` and should be copied to your `secrets.env` file. After all 5 secrets are copied over, you are safe to run `generate_config.sh` to get new configuration options.
 
 > [!IMPORTANT]
-> If you deployed Stoat before September 17th 2026 your minio environment will automatically migrate to silo. Stoat maintainers recommend backing up your minio directory. In the default configuration, this directory is at `data/minio`.
+> If you deployed LieCord before September 17th 2026 your minio environment will automatically migrate to silo. LieCord maintainers recommend backing up your minio directory. In the default configuration, this directory is at `data/minio`.
 >
 > ```bash
 > sudo cp data/minio data/minio-bak
@@ -391,7 +391,7 @@ Due to an incomplete implementation, Stoat will kick any user that attempts to s
 
 ## Security Advisories
 
-You can find information about security advisories on Stoat repositories on Github. Listed below are the latest versions that contain remediations, and links to the security advisory pages.
+You can find information about security advisories on LieCord repositories on Github. Listed below are the latest versions that contain remediations, and links to the security advisory pages.
 
-- backend - 0.15.0 - [stoatchat/stoatchat](https://github.com/stoatchat/stoatchat/security/advisories)
-- for-web - 0.14.1 - [stoatchat/for-web](https://github.com/stoatchat/for-web/security/advisories)
+- backend - 0.15.0 - [lie2srvv/lie2srvv](https://github.com/lie2srvv/lie2srvv/security/advisories)
+- for-web - 0.14.1 - [lie2srvv/for-web](https://github.com/lie2srvv/for-web/security/advisories)

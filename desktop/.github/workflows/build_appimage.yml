@@ -32,15 +32,15 @@ jobs:
       
       - name: Tar gz
         run : |
-          cd ./out/Stoat-linux-x64
-          tar -zcvf ../../Stoat.tar.gz .
+          cd ./out/LieCord-linux-x64
+          tar -zcvf ../../LieCord.tar.gz .
           cd ../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: stoat-linux-package-x64
-          path: ./Stoat.tar.gz
+          name: liecord-linux-package-x64
+          path: ./LieCord.tar.gz
 
   build-appimage:
     needs: [build]
@@ -65,8 +65,8 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v7
         with:
-          name: stoat-linux-package-x64
-          path: /tmp/stoat
+          name: liecord-linux-package-x64
+          path: /tmp/liecord
 
       - name: Extract Artifact
         run: /bin/sh ./.github/build/appimage/extract-artifact.sh

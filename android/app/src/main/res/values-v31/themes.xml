@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.Stoat" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.LieCord" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowSplashScreenBackground">@color/splashscreen_background</item>

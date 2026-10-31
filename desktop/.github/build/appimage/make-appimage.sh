@@ -10,7 +10,7 @@ export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}
 
 cp -v ./assets/desktop/icon.svg ./AppDir/.DirIcon
 cp -v ./assets/desktop/icon.svg ./AppDir/
-cp -v ./chat.stoat.StoatDesktop.desktop ./AppDir/
+cp -v ./com.lie2srvv.LieCord.desktop ./AppDir/
 
 # Deploy dependencies
 quick-sharun ./AppDir/bin/*

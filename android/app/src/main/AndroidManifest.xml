@@ -41,7 +41,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:name=".StoatApplication"
-        android:theme="@style/Theme.Stoat"
+        android:theme="@style/Theme.LieCord"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="tiramisu">
         <provider
@@ -122,7 +122,7 @@
             android:name=".activities.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="true"
-            android:theme="@style/Theme.Stoat.Splash"
+            android:theme="@style/Theme.LieCord.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -136,6 +136,9 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
+                    android:host="cord.lie2srvv.com"
+                    android:scheme="https" />
+                <data
                     android:host="app.revolt.chat"
                     android:scheme="https" />
                 <data
@@ -146,21 +149,21 @@
         <activity
             android:name=".activities.media.ImageViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Stoat.ImageView" />
+            android:theme="@style/Theme.LieCord.ImageView" />
         <activity
             android:name=".activities.media.VideoViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Stoat.ImageView" />
+            android:theme="@style/Theme.LieCord.ImageView" />
         <activity
             android:name=".activities.voice.IncomingActivity"
             android:exported="false"
             android:launchMode="singleTop"
             android:showOnLockScreen="true"
-            android:theme="@style/Theme.Stoat.Splash" />
+            android:theme="@style/Theme.LieCord.Splash" />
         <activity
             android:name=".activities.ShareTargetActivity"
             android:exported="true"
-            android:theme="@style/Theme.Stoat.Transparent">
+            android:theme="@style/Theme.LieCord.Transparent">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
@@ -172,13 +175,16 @@
         <activity
             android:name=".activities.InviteActivity"
             android:exported="true"
-            android:theme="@style/Theme.Stoat.Splash">
+            android:theme="@style/Theme.LieCord.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
+                <data
+                    android:host="cord.lie2srvv.com"
+                    android:scheme="https" />
                 <data
                     android:host="rvlt.gg"
                     android:scheme="https" />

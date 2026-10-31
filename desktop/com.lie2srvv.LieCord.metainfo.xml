@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.lie2srvv.LieCord</id>
+  <launchable type="desktop-id">com.lie2srvv.LieCord.desktop</launchable>
+  <name>LieCord</name>
+  <developer id="com.lie2srvv">
+    <name>LieCord Team</name>
+  </developer>
+  <summary>Open source, user-first chat platform</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0</project_license>
+  <icon type="remote" height="256" width="256">
+    https://raw.githubusercontent.com/lie2srvv/LieCord/main/desktop/assets/desktop/icon.png</icon>
+  <description>
+    <p>LieCord is an open source, user-first chat platform. Send messages, share
+      images, mention users, and join voice channels — all from a native desktop
+      application.</p>
+  </description>
+  <releases>
+    <release date="2026-11-01" version="1.5.4">
+      <description>
+        <p>Features:</p>
+        <ul>
+          <li>LieCord communication platform</li>
+          <li>Voice and screen sharing enhancements</li>
+          <li>Optimized memory and resource management</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  <url type="bugtracker">https://github.com/lie2srvv/LieCord/issues</url>
+  <url type="homepage">https://cord.lie2srvv.com</url>
+  <url type="vcs-browser">https://github.com/lie2srvv/LieCord</url>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-info">intense</content_attribute>
+    <content_attribute id="social-audio">intense</content_attribute>
+    <content_attribute id="social-contacts">intense</content_attribute>
+  </content_rating>
+  <requires>
+    <display_length compare="ge">940</display_length>
+    <internet>always</internet>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+</component>

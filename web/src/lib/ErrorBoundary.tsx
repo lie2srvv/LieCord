@@ -39,8 +39,6 @@ interface Props {
     section: "client" | "renderer";
 }
 
-const ERROR_URL = "https://reporting.revolt.chat";
-
 export function reportError(error: Error, section: string) {
     console.error(`[ErrorBoundary:${section}]`, error);
 }

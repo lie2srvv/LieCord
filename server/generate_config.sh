@@ -46,7 +46,7 @@ if test -f "Revolt.toml"; then
         if [ "$SECRETS_FOUND" -eq "0" ]; then
             echo "Overwrite flag passed, but secrets.env not found. This script will refuse to execute an overwrite without secrets.env."
             echo "If you are absolutely sure you want to overwrite your secrets with new secrets, copy the secrets.env.example file without modifying it's contents using command 'cp secrets.env.example secrets.env'."
-            echo "If you do not copy your existing secrets into secrets.env you WILL lose access to ALL of your files store in your Stoat instance."
+            echo "If you do not copy your existing secrets into secrets.env you WILL lose access to ALL of your files store in your LieCord instance."
             exit 1
         fi
         echo "Overwriting existing config."
@@ -61,8 +61,8 @@ if test -f "Revolt.toml"; then
     else
         echo "Existing config found, in caution, this script will refuse to execute if you have existing config."
         if [ "$SECRETS_FOUND" -eq "0" ]; then
-            echo "Please configure secrets.env with your existing secrets to prevent losing access to your saved files in your Stoat instance. You can see instructions on how to configure it by reading the file secrets.env.example. You can do this by running the command 'cat secrets.env.example'."
-            echo "Overwriting your existing config will result in you losing access to all current files stored on your Stoat instance unless you copy your old secrets into secrets.env."
+            echo "Please configure secrets.env with your existing secrets to prevent losing access to your saved files in your LieCord instance. You can see instructions on how to configure it by reading the file secrets.env.example. You can do this by running the command 'cat secrets.env.example'."
+            echo "Overwriting your existing config will result in you losing access to all current files stored on your LieCord instance unless you copy your old secrets into secrets.env."
         else
             echo "secrets.env found, please ensure it matches what is currently in your Revolt.toml."
         fi
@@ -95,11 +95,11 @@ else
     fi
 fi
 
-echo "Configuring Stoat with hostname $DOMAIN"
+echo "Configuring LieCord with hostname $DOMAIN"
 
 STOAT_HOSTNAME="https://$DOMAIN"
 
-read -rp "Would you like to place Stoat behind another reverse proxy? [y/N]: "
+read -rp "Would you like to place LieCord behind another reverse proxy? [y/N]: "
 if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
     echo "Yes received. Configuring for reverse proxy."
     STOAT_HOSTNAME=':80'

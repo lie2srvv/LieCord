@@ -25,8 +25,8 @@ jobs:
       - id: app-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.GH_STOAT_RELEASE_APP_ID }}
-          private-key: ${{ secrets.GH_STOAT_RELEASE_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.GH_LIECORD_RELEASE_APP_ID }}
+          private-key: ${{ secrets.GH_LIECORD_RELEASE_APP_PRIVATE_KEY }}
       - id: rp
         uses: googleapis/release-please-action@v4
         with:
@@ -89,16 +89,16 @@ jobs:
       - name: Tar gz
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm'
         run : |
-          cd ./out/Stoat-linux-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
-          tar -zcvf ../../Stoat.tar.gz .
+          cd ./out/LieCord-linux-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
+          tar -zcvf ../../LieCord.tar.gz .
           cd ../..
 
       - name: Upload artifact for AppImage build
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-24.04-arm'
         uses: actions/upload-artifact@v6
         with:
-          name: stoat-linux-package-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
-          path: ./Stoat.tar.gz
+          name: liecord-linux-package-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
+          path: ./LieCord.tar.gz
   
   build-appimage:
     needs: [release-please, publish-release]
@@ -127,8 +127,8 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v7
         with:
-          name: stoat-linux-package-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
-          path: /tmp/stoat
+          name: liecord-linux-package-${{ case(matrix.os == 'ubuntu-latest', 'x64', 'arm64') }}
+          path: /tmp/liecord
 
       - name: Extract Artifact
         run: /bin/sh ./.github/build/appimage/extract-artifact.sh
@@ -159,6 +159,6 @@ jobs:
           merge-multiple: true
 
       - name: Update release with AppImage
-        run: gh release upload v${{ needs.release-please.outputs.release_version }} Stoat-*.AppImage*
+        run: gh release upload v${{ needs.release-please.outputs.release_version }} LieCord-*.AppImage*
         env: 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

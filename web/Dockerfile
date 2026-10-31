@@ -20,7 +20,7 @@ RUN yarn workspaces focus --production --all
 FROM node:24-alpine
 WORKDIR /usr/src/app
 
-ARG REVOLT_PUBLIC_URL=https://api.stoat.chat/
+ARG REVOLT_PUBLIC_URL=https://cord.lie2srvv.com/api
 ENV REVOLT_PUBLIC_URL=$REVOLT_PUBLIC_URL
 
 COPY docker/package.json docker/yarn.lock .
@@ -28,4 +28,4 @@ RUN yarn install --frozen-lockfile
 COPY --from=builder --exclude=package.json --exclude=yarn.lock --exclude=.yarn* --exclude=.git --exclude=external --exclude=node_modules /usr/src/app .
 
 EXPOSE 5000
-CMD [ "yarn", "start:inject" ]
+CMD ["yarn", "start"]

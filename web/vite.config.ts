@@ -54,9 +54,9 @@ export default defineConfig({
             filename: "sw.ts",
             strategies: "injectManifest",
             manifest: {
-                name: "Revolt",
-                short_name: "Revolt",
-                description: "User-first, privacy-focused chat platform.",
+                name: "LieCord",
+                short_name: "LieCord",
+                description: "LieCord - communication platform.",
                 categories: ["communication", "chat", "messaging"],
                 start_url: "/",
                 orientation: "portrait",
@@ -88,23 +88,6 @@ export default defineConfig({
                         purpose: "maskable",
                     },
                 ],
-                //TODO: add shortcuts relating to your last opened direct messages
-                /*shortcuts: [
-                    {
-                      "name": "Open Play Later",
-                      "short_name": "Play Later",
-                      "description": "View the list of podcasts you saved for later",
-                      "url": "/play-later?utm_source=homescreen",
-                      "icons": [{ "src": "/icons/play-later.png", "sizes": "192x192" }]
-                    },
-                    {
-                      "name": "View Subscriptions",
-                      "short_name": "Subscriptions",
-                      "description": "View the list of podcasts you listen to",
-                      "url": "/subscriptions?utm_source=homescreen",
-                      "icons": [{ "src": "/icons/subscriptions.png", "sizes": "192x192" }]
-                    }
-                  ]*/
             },
         }),
         replace({
