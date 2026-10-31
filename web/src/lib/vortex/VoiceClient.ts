@@ -172,7 +172,21 @@ class NoiseGateProcessor
             this.scriptProcessor?.disconnect();
             this.dummyGain?.disconnect();
         } catch (_) {}
+        this.sourceNode = undefined;
+        this.filterNode = undefined;
+        this.gainNode = undefined;
+        this.scriptProcessor = undefined;
+        this.dummyGain = undefined;
         this.processedTrack = undefined;
+        if (
+            this.audioContext &&
+            typeof this.audioContext.close === "function" &&
+            this.audioContext.state !== "closed"
+        ) {
+            try {
+                await this.audioContext.close();
+            } catch (_) {}
+        }
     }
 }
 
@@ -202,6 +216,28 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             typeof window !== "undefined" &&
             typeof RTCPeerConnection !== "undefined"
         );
+    }
+
+    private async cleanupAudioProducer() {
+        if (this.audioProducer) {
+            try {
+                const track = this.audioProducer.track;
+                if (track) {
+                    if (typeof track.stopProcessor === "function") {
+                        await track.stopProcessor();
+                    }
+                    if (
+                        track.audioContext &&
+                        typeof track.audioContext.close === "function" &&
+                        track.audioContext.state !== "closed"
+                    ) {
+                        await track.audioContext.close().catch(() => {});
+                    }
+                    track.stop();
+                }
+            } catch (_) {}
+            this.audioProducer = undefined;
+        }
     }
 
     private async applyAudioEnhancements(pub: any) {
@@ -794,7 +830,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             } catch (_) {}
             this.screenAudioProducer = undefined;
         }
-        this.audioProducer = undefined;
+        this.cleanupAudioProducer().catch(() => {});
         this.screenProducer = undefined;
         // Keep isDeaf and isMuted intact across calls
         this.emit("close");
@@ -1050,7 +1086,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             } catch (err) {
                 console.warn("Failed to stop microphone:", err);
             }
-            this.audioProducer = undefined;
+            await this.cleanupAudioProducer();
             this.emit("stopProduce", "audio");
         } else if (type === "screen") {
             if (

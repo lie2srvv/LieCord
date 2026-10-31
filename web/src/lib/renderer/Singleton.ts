@@ -209,18 +209,40 @@ export class ChannelRenderer {
     }
 }
 
-const renderers: Record<string, ChannelRenderer> = {};
+// Bounded LRU cache of channel renderers to prevent unbounded RAM accumulation and listener leaks
+const MAX_CACHED_RENDERERS = 25;
+const renderers = new Map<string, ChannelRenderer>();
 
-export function getRenderer(channel: Channel) {
-    let renderer = renderers[channel._id];
+export function getRenderer(channel: Channel): ChannelRenderer {
+    let renderer = renderers.get(channel._id);
     if (!renderer) {
+        if (renderers.size >= MAX_CACHED_RENDERERS) {
+            const oldestKey = renderers.keys().next().value;
+            if (oldestKey) {
+                const oldRenderer = renderers.get(oldestKey);
+                try {
+                    oldRenderer?.destroy();
+                } catch (_) {}
+                renderers.delete(oldestKey);
+            }
+        }
         renderer = new ChannelRenderer(channel);
-        renderers[channel._id] = renderer;
+        renderers.set(channel._id, renderer);
+    } else {
+        // Move to most recently used
+        renderers.delete(channel._id);
+        renderers.set(channel._id, renderer);
     }
 
     return renderer;
 }
 
-export function deleteRenderer(channel_id: string) {
-    delete renderers[channel_id];
+export function deleteRenderer(channel_id: string): void {
+    const renderer = renderers.get(channel_id);
+    if (renderer) {
+        try {
+            renderer.destroy();
+        } catch (_) {}
+        renderers.delete(channel_id);
+    }
 }
