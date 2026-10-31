@@ -222,7 +222,7 @@ class LieCordPushService : Service() {
     private fun getClient(): OkHttpClient {
         return okHttpClient ?: OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .pingInterval(25, TimeUnit.SECONDS)
+            .pingInterval(45, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build().also { okHttpClient = it }
     }
@@ -323,6 +323,9 @@ class LieCordPushService : Service() {
         } else null
 
         val finalName = displayName.ifBlank { username.ifBlank { "Пользователь" } }
+        if (userProfileCache.size > 300) {
+            userProfileCache.clear()
+        }
         userProfileCache[id] = Pair(finalName, avatarUrl)
     }
 
