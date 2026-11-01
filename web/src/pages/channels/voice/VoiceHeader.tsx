@@ -607,6 +607,54 @@ const ContextMenuPopup = styled.div<{ x: number; y: number }>`
         background: rgba(255, 255, 255, 0.08);
         margin: 4px 0;
     }
+
+    .volume-slider-group {
+        padding: 6px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        .slider-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8e9297;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+
+            .slider-val {
+                color: #5865f2;
+                font-weight: 700;
+            }
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: #4f545c;
+            outline: none;
+            cursor: pointer;
+
+            &::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #ffffff;
+                cursor: pointer;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+                transition: transform 0.1s ease;
+                &:hover {
+                    transform: scale(1.15);
+                }
+            }
+        }
+    }
 `;
 
 function captureLastFrame(videoEl: HTMLVideoElement | null, userId: string) {
@@ -1391,7 +1439,8 @@ export default observer(({ id }: Props) => {
                               return (
                                   <ParticipantWrapper
                                       key={user_id}
-                                      speaking={isSpeaking}>
+                                      speaking={isSpeaking}
+                                      onContextMenu={(e: any) => handleContextMenu(e, user_id)}>
                                       <UserIcon
                                           size={80}
                                           target={
@@ -1582,6 +1631,26 @@ export default observer(({ id }: Props) => {
                         }}
                     />
                     <ContextMenuPopup x={contextMenu.x} y={contextMenu.y}>
+                        {contextMenu.userId !== selfId && (
+                            <div className="volume-slider-group" onClick={(e: any) => e.stopPropagation()}>
+                                <div className="slider-header">
+                                    <span>Громкость</span>
+                                    <span className="slider-val">{voiceState.getUserVolume(contextMenu.userId)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="200"
+                                    step="1"
+                                    value={voiceState.getUserVolume(contextMenu.userId)}
+                                    onInput={(e: any) => {
+                                        const val = Number(e.currentTarget.value);
+                                        voiceState.setUserVolume(contextMenu.userId, val);
+                                    }}
+                                />
+                                <div className="divider" />
+                            </div>
+                        )}
                         {watchedStreamUserId === contextMenu.userId ? (
                             <button
                                 className="menu-item danger"

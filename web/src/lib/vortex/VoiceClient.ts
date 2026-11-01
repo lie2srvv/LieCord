@@ -223,6 +223,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public screenAudioTracks: Map<string, RemoteTrack> = new Map();
     public screenThumbnails: Map<string, string> = new Map();
     public watchingUserId: string | null = null;
+    public userVolumes: Map<string, number> = new Map();
+    private userAudioContexts: Map<string, AudioContext> = new Map();
+    private userGainNodes: Map<string, GainNode> = new Map();
 
     supported(): boolean {
         return (
@@ -514,6 +517,14 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.screenAudioTracks.clear();
         this.screenThumbnails.clear();
         this.watchingUserId = null;
+        if (typeof window !== "undefined") {
+            try {
+                const saved = JSON.parse(localStorage.getItem("liecord_user_volumes") || "{}");
+                Object.keys(saved).forEach((uid) => {
+                    this.userVolumes.set(uid, Number(saved[uid]));
+                });
+            } catch (_) {}
+        }
 
         const room = new Room({
             audioCaptureDefaults: getAudioCaptureOptions() as any,
@@ -658,6 +669,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         }
                         this.applyOutputDeviceToElement(el);
                         document.body.appendChild(el);
+                        this.applyUserVolume(uid, el);
                         el.play().catch(() => {});
 
                         u.audio = true;
@@ -825,6 +837,13 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         document.querySelectorAll("audio[id^='audio-']").forEach((el) => {
             el.remove();
         });
+        this.userAudioContexts.forEach((ctx) => {
+            try {
+                if (ctx.state !== "closed") ctx.close().catch(() => {});
+            } catch (_) {}
+        });
+        this.userAudioContexts.clear();
+        this.userGainNodes.clear();
         document
             .querySelectorAll("video[id^='video-screen-']")
             .forEach((el) => {
@@ -1177,5 +1196,57 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 }
             });
         }
+    }
+    public applyUserVolume(userId: string, targetEl?: HTMLAudioElement) {
+        if (typeof window === "undefined") return;
+        const vol = this.userVolumes.get(userId) ?? 100;
+        const normalized = Math.max(0, Math.min(200, vol)) / 100;
+
+        const elements = targetEl ? [targetEl] : Array.from(document.querySelectorAll<HTMLAudioElement>(document.querySelectorAll<HTMLAudioElement>("audio[id^='audio-" + userId + "-']")));
+        elements.forEach((el) => {
+            if (this.isDeaf) {
+                el.muted = true;
+                return;
+            }
+            if (normalized <= 1.0) {
+                el.volume = normalized;
+            } else {
+                // > 100% boost using Web Audio API GainNode
+                el.volume = 1.0;
+                try {
+                    let gainNode = this.userGainNodes.get(userId);
+                    if (!gainNode) {
+                        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+                        if (AudioCtx) {
+                            const ctx = new AudioCtx();
+                            const src = ctx.createMediaElementSource(el);
+                            gainNode = ctx.createGain();
+                            src.connect(gainNode);
+                            gainNode.connect(ctx.destination);
+                            this.userAudioContexts.set(userId, ctx);
+                            this.userGainNodes.set(userId, gainNode);
+                        }
+                    }
+                    if (gainNode) {
+                        gainNode.gain.value = normalized;
+                    }
+                } catch (e) {
+                    // Fallback to max native volume
+                    el.volume = 1.0;
+                }
+            }
+        });
+    }
+
+    public setUserVolume(userId: string, volume: number) {
+        this.userVolumes.set(userId, volume);
+        if (typeof window !== "undefined") {
+            try {
+                const saved = JSON.parse(localStorage.getItem("liecord_user_volumes") || "{}");
+                saved[userId] = volume;
+                localStorage.setItem("liecord_user_volumes", JSON.stringify(saved));
+            } catch (_) {}
+        }
+        this.applyUserVolume(userId);
     }
 }

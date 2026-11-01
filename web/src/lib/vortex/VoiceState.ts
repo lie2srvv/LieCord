@@ -47,6 +47,12 @@ class VoiceStateReference {
     audioProducing: boolean = false;
     screenProducing: boolean = false;
     wasMutedBeforeDeafen: boolean = false;
+    userVolumes: ObservableMap<string, number> = new ObservableMap();
+    inputMode: "voice_activity" | "ptt" = "voice_activity";
+    pttKey: string = "ControlLeft";
+    pttKeyLabel: string = "Ctrl";
+    isPttActive: boolean = false;
+    private pttTimeout: any = null;
 
     // Global channel voice states across server voice channels and DMs
     channelVoiceStates: ObservableMap<string, ChannelVoiceParticipant[]> =
@@ -74,6 +80,13 @@ class VoiceStateReference {
 
         if (typeof window !== "undefined") {
             try {
+                const savedVolumes = localStorage.getItem("liecord_user_volumes");
+                if (savedVolumes) {
+                    const parsed = JSON.parse(savedVolumes);
+                    Object.keys(parsed).forEach((k) => {
+                        this.userVolumes.set(k, Number(parsed[k]));
+                    });
+                }
                 const savedMuted = localStorage.getItem("liecord_mic_muted");
                 if (savedMuted !== null) {
                     this.isMuted = savedMuted === "true";
@@ -85,6 +98,14 @@ class VoiceStateReference {
                         this.isMuted = true;
                     }
                 }
+                const savedMode = localStorage.getItem("liecord_input_mode");
+                if (savedMode === "ptt" || savedMode === "voice_activity") {
+                    this.inputMode = savedMode;
+                }
+                const savedKey = localStorage.getItem("liecord_ptt_key");
+                if (savedKey) this.pttKey = savedKey;
+                const savedKeyLabel = localStorage.getItem("liecord_ptt_key_label");
+                if (savedKeyLabel) this.pttKeyLabel = savedKeyLabel;
             } catch (_) {}
         }
 
@@ -95,6 +116,21 @@ class VoiceStateReference {
         this.toggleDeafen = this.toggleDeafen.bind(this);
         this.startDeafen = this.startDeafen.bind(this);
         this.stopDeafen = this.stopDeafen.bind(this);
+        // Setup global window PTT key listeners
+        if (typeof window !== "undefined") {
+            window.addEventListener("keydown", (e) => {
+                // Ignore if user is typing in input/textarea/contenteditable
+                const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+                const isInput = tag === "input" || tag === "textarea" || (e.target as HTMLElement)?.isContentEditable;
+                if (!isInput) {
+                    this.handlePttKeyDown(e.code);
+                }
+            });
+            window.addEventListener("keyup", (e) => {
+                this.handlePttKeyUp(e.code);
+            });
+        }
+
 
         // Listen for native desktop incoming call actions
         try {
@@ -640,6 +676,101 @@ class VoiceStateReference {
         }
 
         this.syncState();
+    }
+    getUserVolume(userId: string): number {
+        return this.userVolumes.get(userId) ?? 100;
+    }
+
+    @action setUserVolume(userId: string, volume: number) {
+        this.userVolumes.set(userId, volume);
+        if (typeof window !== "undefined") {
+            try {
+                const saved = JSON.parse(localStorage.getItem("liecord_user_volumes") || "{}");
+                saved[userId] = volume;
+                localStorage.setItem("liecord_user_volumes", JSON.stringify(saved));
+            } catch (_) {}
+        }
+        if (this.client) {
+            this.client.setUserVolume(userId, volume);
+        }
+    }
+    private playPttBeep(isOn: boolean) {
+        if (typeof window === "undefined") return;
+        try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            // Pleasing soft high pitch for on (880Hz), low tone for off (440Hz)
+            osc.frequency.setValueAtTime(isOn ? 880 : 440, ctx.currentTime);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.08);
+            setTimeout(() => {
+                ctx.close().catch(() => {});
+            }, 120);
+        } catch (_) {}
+    }
+
+    @action setInputMode(mode: "voice_activity" | "ptt") {
+        this.inputMode = mode;
+        if (typeof window !== "undefined") {
+            localStorage.setItem("liecord_input_mode", mode);
+        }
+        if (mode === "ptt") {
+            // Mute mic initially when entering PTT mode
+            if (this.roomId && !this.isPttActive) {
+                this.client?.stopProduce("audio");
+            }
+        } else {
+            // Voice activity mode: unmute if not explicitly muted
+            if (this.roomId && !this.isMuted && !this.isDeafened) {
+                this.client?.startProduce({} as any, "audio");
+            }
+        }
+    }
+
+    @action setPttKey(code: string, label: string) {
+        this.pttKey = code;
+        this.pttKeyLabel = label;
+        if (typeof window !== "undefined") {
+            localStorage.setItem("liecord_ptt_key", code);
+            localStorage.setItem("liecord_ptt_key_label", label);
+        }
+    }
+
+    @action handlePttKeyDown(code: string) {
+        if (this.inputMode !== "ptt" || !this.roomId || this.isDeafened) return;
+        if (code === this.pttKey) {
+            if (this.pttTimeout) {
+                clearTimeout(this.pttTimeout);
+                this.pttTimeout = null;
+            }
+            if (!this.isPttActive) {
+                this.isPttActive = true;
+                this.playPttBeep(true);
+                this.client?.startProduce({} as any, "audio");
+            }
+        }
+    }
+
+    @action handlePttKeyUp(code: string) {
+        if (this.inputMode !== "ptt" || !this.roomId) return;
+        if (code === this.pttKey && this.isPttActive) {
+            // Short release delay (250ms) to prevent cutting words
+            if (this.pttTimeout) clearTimeout(this.pttTimeout);
+            this.pttTimeout = setTimeout(() => {
+                this.isPttActive = false;
+                this.playPttBeep(false);
+                this.client?.stopProduce("audio");
+                this.pttTimeout = null;
+            }, 250);
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+import { observer } from "mobx-react-lite";
 import styles from "./Panes.module.scss";
 import { Text } from "preact-i18n";
 import { useEffect, useState } from "preact/hooks";
@@ -13,7 +14,7 @@ import opusSVG from "../assets/opus_logo.svg";
 
 const constraints = { audio: true };
 
-export function Audio() {
+export const Audio = observer(() => {
     const [mediaStream, setMediaStream] = useState<MediaStream | undefined>(
         undefined,
     );
@@ -30,6 +31,7 @@ export function Audio() {
         return undefined;
     });
     const [error, setError] = useState<DOMException | undefined>(undefined);
+    const [isRecordingPtt, setIsRecordingPtt] = useState(false);
 
     const askOrGetPermission = async () => {
         try {
@@ -314,6 +316,49 @@ export function Audio() {
                         </ComboBox>
                     </div>
                 </div>
+                <div className={styles.audioRow} style={{ marginTop: 20 }}>
+                    <div className={styles.select} style={{ width: "100%" }}>
+                        <h3>Режим активации микрофона</h3>
+                        <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                            <Button
+                                compact
+                                palette={voiceState.inputMode === "voice_activity" ? "accent" : "secondary"}
+                                onClick={() => voiceState.setInputMode("voice_activity")}>
+                                По голосу (Voice Activity)
+                            </Button>
+                            <Button
+                                compact
+                                palette={voiceState.inputMode === "ptt" ? "accent" : "secondary"}
+                                onClick={() => voiceState.setInputMode("ptt")}>
+                                Режим рации (Push-to-Talk)
+                            </Button>
+                        </div>
+
+                        {voiceState.inputMode === "ptt" && (
+                            <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontSize: 13, color: "var(--foreground)" }}>
+                                    Клавиша активации:
+                                </span>
+                                <Button
+                                    compact
+                                    palette={isRecordingPtt ? "error" : "primary"}
+                                    onClick={() => setIsRecordingPtt(true)}
+                                    onKeyDown={(e: any) => {
+                                        if (isRecordingPtt) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const code = e.code;
+                                            const key = e.key.toUpperCase();
+                                            voiceState.setPttKey(code, key === " " ? "SPACE" : key);
+                                            setIsRecordingPtt(false);
+                                        }
+                                    }}>
+                                    {isRecordingPtt ? "Нажмите любую клавишу..." : voiceState.pttKeyLabel || "Настроить"}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
             <hr />
             <div className={styles.opus}>
@@ -322,7 +367,7 @@ export function Audio() {
             </div>
         </>
     );
-}
+});
 
 function changeAudioDevice(deviceId: string, deviceType: string) {
     const kind = deviceType === "input" ? "audioinput" : "audiooutput";
