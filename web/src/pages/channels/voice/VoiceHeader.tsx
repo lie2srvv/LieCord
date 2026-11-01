@@ -1648,34 +1648,40 @@ export default observer(({ id }: Props) => {
                                         voiceState.setUserVolume(contextMenu.userId, val);
                                     }}
                                 />
-                                <div className="divider" />
                             </div>
                         )}
-                        {watchedStreamUserId === contextMenu.userId ? (
-                            <button
-                                className="menu-item danger"
-                                onClick={() => {
-                                    handleLeaveStream(contextMenu.userId);
-                                    setContextMenu(null);
-                                }}>
-                                <LogOut size={16} /> Покинуть трансляцию
-                            </button>
-                        ) : (
-                            <button
-                                className="menu-item"
-                                onClick={() => {
-                                    handleWatchStream(contextMenu.userId);
-                                    setContextMenu(null);
-                                }}>
-                                <Show size={16} /> Смотреть трансляцию
-                            </button>
+
+                        {activeStreamEntries.some((v) => v.userId === contextMenu.userId && !v.isSelf) && (
+                            <>
+                                {contextMenu.userId !== selfId && <div className="divider" />}
+                                {watchedStreamUserId === contextMenu.userId ? (
+                                    <button
+                                        className="menu-item danger"
+                                        onClick={() => {
+                                            handleLeaveStream(contextMenu.userId);
+                                            setContextMenu(null);
+                                        }}>
+                                        <LogOut size={16} /> Покинуть трансляцию
+                                    </button>
+                                ) : (
+                                    <button
+                                        className="menu-item"
+                                        onClick={() => {
+                                            handleWatchStream(contextMenu.userId);
+                                            setContextMenu(null);
+                                        }}>
+                                        <Show size={16} /> Смотреть трансляцию
+                                    </button>
+                                )}
+                            </>
                         )}
 
-                        {contextMenu.userId === selfId && (
+                        {contextMenu.userId === selfId && (voiceState.isProducing("screen") || voiceState.isProducing("camera")) && (
                             <button
                                 className="menu-item danger"
                                 onClick={() => {
-                                    voiceState.stopProducing("screen");
+                                    if (voiceState.isProducing("screen")) voiceState.stopProducing("screen");
+                                    if (voiceState.isProducing("camera")) voiceState.stopProducing("camera");
                                     setContextMenu(null);
                                 }}>
                                 <Desktop size={16} /> Остановить трансляцию

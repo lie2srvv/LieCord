@@ -1195,30 +1195,58 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     audioEl.setSinkId(deviceId === "default" ? "" : deviceId).catch(() => {});
                 }
             });
+            this.userAudioContexts.forEach((ctx) => {
+                if ((ctx as any).setSinkId) {
+                    (ctx as any).setSinkId(deviceId === "default" ? "" : deviceId).catch(() => {});
+                }
+            });
         }
     }
     public applyUserVolume(userId: string, targetEl?: HTMLAudioElement) {
         if (typeof window === "undefined") return;
         const vol = this.userVolumes.get(userId) ?? 100;
-        const normalized = Math.max(0, Math.min(200, vol)) / 100;
+        const clampedVol = Math.max(0, Math.min(200, vol));
+        const normalized = clampedVol / 100;
 
-        const elements = targetEl ? [targetEl] : Array.from(document.querySelectorAll<HTMLAudioElement>(document.querySelectorAll<HTMLAudioElement>("audio[id^='audio-" + userId + "-']")));
+        const elements = targetEl
+            ? [targetEl]
+            : Array.from(
+                  document.querySelectorAll<HTMLAudioElement>(
+                      `audio[id^='audio-${userId}-'], audio[id^='audio-screen-${userId}-']`
+                  )
+              );
+
         elements.forEach((el) => {
             if (this.isDeaf) {
                 el.muted = true;
                 return;
             }
+            el.muted = false;
+
             if (normalized <= 1.0) {
-                el.volume = normalized;
+                try {
+                    el.volume = normalized;
+                } catch (_) {}
+                const gainNode = this.userGainNodes.get(userId);
+                if (gainNode) {
+                    gainNode.gain.value = 1.0;
+                }
             } else {
                 // > 100% boost using Web Audio API GainNode
-                el.volume = 1.0;
+                try {
+                    el.volume = 1.0;
+                } catch (_) {}
                 try {
                     let gainNode = this.userGainNodes.get(userId);
-                    if (!gainNode) {
+                    let ctx = this.userAudioContexts.get(userId);
+                    if (!gainNode || !ctx) {
                         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
                         if (AudioCtx) {
-                            const ctx = new AudioCtx();
+                            ctx = new AudioCtx();
+                            const savedOutput = window.localStorage.getItem("audioOutputDevice");
+                            if ((ctx as any).setSinkId && savedOutput) {
+                                (ctx as any).setSinkId(savedOutput === "default" ? "" : savedOutput).catch(() => {});
+                            }
                             const src = ctx.createMediaElementSource(el);
                             gainNode = ctx.createGain();
                             src.connect(gainNode);
@@ -1227,15 +1255,28 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                             this.userGainNodes.set(userId, gainNode);
                         }
                     }
+                    if (ctx && ctx.state === "suspended") {
+                        ctx.resume().catch(() => {});
+                    }
                     if (gainNode) {
                         gainNode.gain.value = normalized;
                     }
                 } catch (e) {
                     // Fallback to max native volume
-                    el.volume = 1.0;
+                    try {
+                        el.volume = 1.0;
+                    } catch (_) {}
                 }
             }
         });
+
+        // Also update LiveKit participant volume if available
+        try {
+            const p = this.room?.getParticipantByIdentity(userId);
+            if (p && typeof (p as any).setVolume === "function") {
+                (p as any).setVolume(Math.min(1.0, normalized));
+            }
+        } catch (_) {}
     }
 
     public setUserVolume(userId: string, volume: number) {
