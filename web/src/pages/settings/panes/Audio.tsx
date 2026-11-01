@@ -325,13 +325,6 @@ export function Audio() {
 }
 
 function changeAudioDevice(deviceId: string, deviceType: string) {
-    if (deviceType === "input") {
-        window.localStorage.setItem("audioInputDevice", deviceId);
-        if (voiceState.isProducing("audio")) {
-            voiceState.stopProducing("audio");
-            voiceState.startProducing("audio");
-        }
-    } else if (deviceType === "output") {
-        window.localStorage.setItem("audioOutputDevice", deviceId);
-    }
+    const kind = deviceType === "input" ? "audioinput" : "audiooutput";
+    voiceState.changeAudioDevice(deviceId, kind);
 }

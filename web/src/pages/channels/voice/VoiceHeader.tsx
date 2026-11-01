@@ -24,6 +24,7 @@ import { observer } from "mobx-react-lite";
 import styled, { css } from "styled-components/macro";
 
 import { Text } from "preact-i18n";
+import { openContextMenu } from "preact-context-menu";
 import { useMemo, useRef, useEffect, useState } from "preact/hooks";
 
 import { Button } from "@revoltchat/ui";
@@ -1434,32 +1435,49 @@ export default observer(({ id }: Props) => {
                     </Button>
                 </Tooltip>
                 {voiceState.isProducing("audio") ? (
-                    <Tooltip content={"Отключить микрофон"} placement={"top"}>
+                    <Tooltip content={"Отключить микрофон (ПКМ для выбора)"} placement={"top"}>
                         <Button
-                            onClick={() => voiceState.stopProducing("audio")}>
+                            onClick={() => voiceState.stopProducing("audio")}
+                            onContextMenu={(e: any) => {
+                                e.preventDefault();
+                                openContextMenu("AudioDeviceOptions", { kind: "audioinput" }, { x: e.clientX, y: e.clientY });
+                            }}>
                             <Microphone width={20} />
                         </Button>
                     </Tooltip>
                 ) : (
-                    <Tooltip content={"Включить микрофон"} placement={"top"}>
+                    <Tooltip content={"Включить микрофон (ПКМ для выбора)"} placement={"top"}>
                         <Button
                             palette="error"
-                            onClick={() => voiceState.startProducing("audio")}>
+                            onClick={() => voiceState.startProducing("audio")}
+                            onContextMenu={(e: any) => {
+                                e.preventDefault();
+                                openContextMenu("AudioDeviceOptions", { kind: "audioinput" }, { x: e.clientX, y: e.clientY });
+                            }}>
                             <MicrophoneOff width={20} />
                         </Button>
                     </Tooltip>
                 )}
                 {voiceState.isDeaf() ? (
-                    <Tooltip content={"Включить звук"} placement={"top"}>
+                    <Tooltip content={"Включить звук (ПКМ для выбора)"} placement={"top"}>
                         <Button
                             palette="error"
-                            onClick={() => voiceState.stopDeafen()}>
+                            onClick={() => voiceState.stopDeafen()}
+                            onContextMenu={(e: any) => {
+                                e.preventDefault();
+                                openContextMenu("AudioDeviceOptions", { kind: "audiooutput" }, { x: e.clientX, y: e.clientY });
+                            }}>
                             <VolumeMute width={20} />
                         </Button>
                     </Tooltip>
                 ) : (
-                    <Tooltip content={"Заглушить звук"} placement={"top"}>
-                        <Button onClick={() => voiceState.startDeafen()}>
+                    <Tooltip content={"Заглушить звук (ПКМ для выбора)"} placement={"top"}>
+                        <Button
+                            onClick={() => voiceState.startDeafen()}
+                            onContextMenu={(e: any) => {
+                                e.preventDefault();
+                                openContextMenu("AudioDeviceOptions", { kind: "audiooutput" }, { x: e.clientX, y: e.clientY });
+                            }}>
                             <VolumeFull width={20} />
                         </Button>
                     </Tooltip>

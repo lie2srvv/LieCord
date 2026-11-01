@@ -51,6 +51,17 @@ export const DEFAULT_AUDIO_CAPTURE_OPTIONS = {
     googAudioMirroring: false,
 };
 
+export function getAudioCaptureOptions() {
+    const opts: any = { ...DEFAULT_AUDIO_CAPTURE_OPTIONS };
+    if (typeof window !== "undefined") {
+        const savedInput = window.localStorage.getItem("audioInputDevice");
+        if (savedInput && savedInput !== "default") {
+            opts.deviceId = { exact: savedInput };
+        }
+    }
+    return opts;
+}
+
 /**
  * Lightweight noise gate and acoustic filter for voice chat.
  * - Filters low-frequency vibrations, keyboard thumps, and desk rumble (<85Hz).
@@ -188,7 +199,9 @@ class NoiseGateProcessor
             } catch (_) {}
         }
     }
+
 }
+
 
 export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public room?: Room;
@@ -249,7 +262,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 typeof window !== "undefined" &&
                 (window.AudioContext || (window as any).webkitAudioContext)
             ) {
-                if (!track.audioContext) {
+                if (!track.audioContext || track.audioContext.state === "closed") {
                     const ctx = new (window.AudioContext ||
                         (window as any).webkitAudioContext)();
                     if (ctx.state === "suspended") {
@@ -298,6 +311,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         el.id = `audio-screen-${uid}-${track.sid}`;
         el.muted = this.isDeaf;
         el.volume = this.isDeaf ? 0.0 : 1.0;
+        this.applyOutputDeviceToElement(el);
         document.body.appendChild(el);
         if (!this.isDeaf) {
             el.play().catch((e) =>
@@ -502,7 +516,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.watchingUserId = null;
 
         const room = new Room({
-            audioCaptureDefaults: DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+            audioCaptureDefaults: getAudioCaptureOptions() as any,
         });
 
         this.room = room;
@@ -642,6 +656,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                         if (this.isDeaf) {
                             el.muted = true;
                         }
+                        this.applyOutputDeviceToElement(el);
                         document.body.appendChild(el);
                         el.play().catch(() => {});
 
@@ -787,7 +802,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 }
                 const pub = await room.localParticipant.setMicrophoneEnabled(
                     true,
-                    DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+                    getAudioCaptureOptions() as any,
                 );
                 if (pub) {
                     this.audioProducer = pub;
@@ -877,10 +892,12 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 const pub =
                     await this.room.localParticipant.setMicrophoneEnabled(
                         true,
-                        DEFAULT_AUDIO_CAPTURE_OPTIONS as any,
+                        getAudioCaptureOptions() as any,
                     );
-                this.audioProducer = pub;
-                await this.applyAudioEnhancements(pub);
+                if (pub) {
+                    this.audioProducer = pub;
+                    await this.applyAudioEnhancements(pub);
+                }
                 this.emit("startProduce", "audio");
                 if (typeof window !== "undefined") {
                     window.localStorage.setItem(
@@ -1086,7 +1103,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             } catch (err) {
                 console.warn("Failed to stop microphone:", err);
             }
-            await this.cleanupAudioProducer();
+            this.audioProducer = undefined;
             this.emit("stopProduce", "audio");
         } else if (type === "screen") {
             if (
@@ -1118,6 +1135,47 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             }
             this.screenProducer = undefined;
             this.emit("stopProduce", "screen");
+        }
+    }
+
+    public applyOutputDeviceToElement(el: HTMLAudioElement) {
+        if (typeof window === "undefined" || !el) return;
+        const savedOutput = window.localStorage.getItem("audioOutputDevice");
+        if (savedOutput && savedOutput !== "default" && typeof (el as any).setSinkId === "function") {
+            (el as any).setSinkId(savedOutput).catch((err: any) => {
+                console.warn("[VoiceClient] Failed to set sinkId on element:", err);
+            });
+        }
+    }
+
+    public async switchAudioDevice(kind: "audioinput" | "audiooutput", deviceId: string) {
+        if (kind === "audioinput") {
+            if (this.room) {
+                try {
+                    await (this.room as any).switchActiveDevice("audioinput", deviceId === "default" ? "" : deviceId);
+                    if (this.audioProducer) {
+                        await this.applyAudioEnhancements(this.audioProducer);
+                    }
+                } catch (e) {
+                    console.warn("[VoiceClient] room.switchActiveDevice failed, restarting audio producer:", e);
+                    if (this.audioProducer) {
+                        await this.stopProduce("audio");
+                        await this.startProduce({} as any, "audio");
+                    }
+                }
+            }
+        } else if (kind === "audiooutput") {
+            if (this.room && typeof (this.room as any).switchActiveDevice === "function") {
+                try {
+                    await (this.room as any).switchActiveDevice("audiooutput", deviceId === "default" ? "" : deviceId);
+                } catch (_) {}
+            }
+            document.querySelectorAll("audio[id^=audio-]").forEach((el) => {
+                const audioEl = el as any;
+                if (typeof audioEl.setSinkId === "function") {
+                    audioEl.setSinkId(deviceId === "default" ? "" : deviceId).catch(() => {});
+                }
+            });
         }
     }
 }

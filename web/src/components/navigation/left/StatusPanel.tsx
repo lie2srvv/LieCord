@@ -1,3 +1,4 @@
+import { openContextMenu } from "preact-context-menu";
 import {
     Microphone,
     MicrophoneOff,
@@ -214,11 +215,15 @@ export const StatusPanel = observer(() => {
                     <ActionButton
                         title={
                             isMicMuted
-                                ? "Включить микрофон"
-                                : "Отключить микрофон"
+                                ? "Включить микрофон (ПКМ для выбора)"
+                                : "Отключить микрофон (ПКМ для выбора)"
                         }
                         danger={isMicMuted}
-                        onClick={toggleMic}>
+                        onClick={toggleMic}
+                        onContextMenu={(e: any) => {
+                            e.preventDefault();
+                            openContextMenu("AudioDeviceOptions", { kind: "audioinput" }, { x: e.clientX, y: e.clientY });
+                        }}>
                         {isMicMuted ? (
                             <MicrophoneOff size={18} />
                         ) : (
@@ -226,9 +231,17 @@ export const StatusPanel = observer(() => {
                         )}
                     </ActionButton>
                     <ActionButton
-                        title={isDeafened ? "Включить звук" : "Заглушить звук"}
+                        title={
+                            isDeafened
+                                ? "Включить звук (ПКМ для выбора)"
+                                : "Заглушить звук (ПКМ для выбора)"
+                        }
                         danger={isDeafened}
-                        onClick={toggleDeafen}>
+                        onClick={toggleDeafen}
+                        onContextMenu={(e: any) => {
+                            e.preventDefault();
+                            openContextMenu("AudioDeviceOptions", { kind: "audiooutput" }, { x: e.clientX, y: e.clientY });
+                        }}>
                         {isDeafened ? (
                             <VolumeMute size={18} />
                         ) : (

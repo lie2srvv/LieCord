@@ -28,6 +28,7 @@ import { QueuedMessage } from "../mobx/stores/MessageQueue";
 import { NotificationState } from "../mobx/stores/NotificationOptions";
 
 import CMNotifications from "./contextmenu/CMNotifications";
+import CMAudioDevices from "./contextmenu/CMAudioDevices";
 
 import Tooltip from "../components/common/Tooltip";
 import UserStatus from "../components/common/user/UserStatus";
@@ -1298,6 +1299,7 @@ export default function ContextMenus() {
                 }}
             </ContextMenuWithData>
             <CMNotifications />
+            <CMAudioDevices />
         </>
     );
 }

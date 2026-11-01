@@ -623,6 +623,24 @@ class VoiceStateReference {
         }
         this.syncState();
     }
+
+    @action async changeAudioDevice(
+        deviceId: string,
+        kind: "audioinput" | "audiooutput",
+    ) {
+        if (typeof window !== "undefined") {
+            window.localStorage.setItem(
+                kind === "audioinput" ? "audioInputDevice" : "audioOutputDevice",
+                deviceId,
+            );
+        }
+
+        if (this.client) {
+            await this.client.switchAudioDevice(kind, deviceId);
+        }
+
+        this.syncState();
+    }
 }
 
 export const voiceState = new VoiceStateReference();
