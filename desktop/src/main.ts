@@ -39,9 +39,20 @@ if (started) {
   app.quit();
 }
 
-// disable hw-accel if so requested
+// Hardware acceleration and video decoding configuration
 if (!config.hardwareAcceleration) {
   app.disableHardwareAcceleration();
+} else {
+  // Enable hardware video decoding (VA-API on Linux, D3D11/NVDEC on Windows, VideoToolbox on macOS)
+  app.commandLine.appendSwitch("enable-gpu-rasterization");
+  app.commandLine.appendSwitch("enable-zero-copy");
+  app.commandLine.appendSwitch("ignore-gpu-blocklist");
+  if (process.platform === "linux") {
+    app.commandLine.appendSwitch(
+      "enable-features",
+      "VaapiVideoDecoder,VaapiVideoEncoder,CanvasOopRasterization",
+    );
+  }
 }
 
 // ensure only one copy of the application can run

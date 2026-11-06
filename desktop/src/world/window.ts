@@ -98,4 +98,13 @@ contextBridge.exposeInMainWorld("native", {
   onIncomingCallClicked: (callback: (data: { channelId: string; action: "open" | "accept" | "decline" }) => void) => {
     ipcRenderer.on("incomingCallClicked", (_, data) => callback(data));
   },
+
+  // Global Push-To-Talk APIs for background gaming
+  registerGlobalPtt: (shortcut: string) =>
+    ipcRenderer.invoke("registerGlobalPtt", shortcut) as Promise<boolean>,
+  unregisterGlobalPtt: () =>
+    ipcRenderer.invoke("unregisterGlobalPtt") as Promise<boolean>,
+  onGlobalPtt: (callback: (pressed: boolean) => void) => {
+    ipcRenderer.on("globalPtt", (_, pressed) => callback(pressed));
+  },
 });

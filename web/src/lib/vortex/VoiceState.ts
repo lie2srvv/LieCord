@@ -48,6 +48,8 @@ class VoiceStateReference {
     screenProducing: boolean = false;
     wasMutedBeforeDeafen: boolean = false;
     userVolumes: ObservableMap<string, number> = new ObservableMap();
+    mutedUsers: ObservableMap<string, boolean> = new ObservableMap();
+    vadThreshold: number = 50;
     inputMode: "voice_activity" | "ptt" = "voice_activity";
     pttKey: string = "ControlLeft";
     pttKeyLabel: string = "Ctrl";
@@ -87,6 +89,15 @@ class VoiceStateReference {
                         this.userVolumes.set(k, Number(parsed[k]));
                     });
                 }
+                const savedMutedUsers = localStorage.getItem("liecord_muted_users");
+                if (savedMutedUsers) {
+                    const parsedMuted = JSON.parse(savedMutedUsers);
+                    if (Array.isArray(parsedMuted)) {
+                        parsedMuted.forEach((uid) => {
+                            this.mutedUsers.set(uid, true);
+                        });
+                    }
+                }
                 const savedMuted = localStorage.getItem("liecord_mic_muted");
                 if (savedMuted !== null) {
                     this.isMuted = savedMuted === "true";
@@ -97,6 +108,10 @@ class VoiceStateReference {
                     if (this.isDeafened) {
                         this.isMuted = true;
                     }
+                }
+                const savedVad = localStorage.getItem("liecord_vad_threshold");
+                if (savedVad !== null) {
+                    this.vadThreshold = Math.max(0, Math.min(100, Number(savedVad)));
                 }
                 const savedMode = localStorage.getItem("liecord_input_mode");
                 if (savedMode === "ptt" || savedMode === "voice_activity") {
@@ -116,6 +131,38 @@ class VoiceStateReference {
         this.toggleDeafen = this.toggleDeafen.bind(this);
         this.startDeafen = this.startDeafen.bind(this);
         this.stopDeafen = this.stopDeafen.bind(this);
+        // Listen for native desktop global PTT events (works in background / games)
+        try {
+            if ((window as any).native?.onGlobalPtt) {
+                (window as any).native.onGlobalPtt((pressed: boolean) => {
+                    if (this.inputMode !== "ptt" || !this.roomId || this.isDeafened) return;
+                    if (pressed) {
+                        if (this.pttTimeout) {
+                            clearTimeout(this.pttTimeout);
+                            this.pttTimeout = null;
+                        }
+                        if (!this.isPttActive) {
+                            this.isPttActive = true;
+                            this.playPttBeep(true);
+                            this.client?.startProduce({} as any, "audio");
+                        }
+                    } else {
+                        if (this.isPttActive) {
+                            if (this.pttTimeout) clearTimeout(this.pttTimeout);
+                            this.pttTimeout = setTimeout(() => {
+                                this.isPttActive = false;
+                                this.playPttBeep(false);
+                                this.client?.stopProduce("audio");
+                                this.pttTimeout = null;
+                            }, 250);
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to register desktop onGlobalPtt:", e);
+        }
+
         // Setup global window PTT key listeners
         if (typeof window !== "undefined") {
             window.addEventListener("keydown", (e) => {
@@ -435,6 +482,7 @@ class VoiceStateReference {
             const client = new VoiceClient();
             client.isDeaf = this.isDeafened;
             client.isMuted = this.isMuted || this.isDeafened;
+            client.setVadThreshold(this.vadThreshold);
 
             client.on("startProduce", this.syncState);
             client.on("stopProduce", this.syncState);
@@ -681,6 +729,28 @@ class VoiceStateReference {
         return this.userVolumes.get(userId) ?? 100;
     }
 
+    isUserMuted(userId: string): boolean {
+        return this.mutedUsers.get(userId) ?? false;
+    }
+
+    @action toggleUserMute(userId: string) {
+        const nextMuted = !this.isUserMuted(userId);
+        if (nextMuted) {
+            this.mutedUsers.set(userId, true);
+        } else {
+            this.mutedUsers.delete(userId);
+        }
+        if (typeof window !== "undefined") {
+            try {
+                const arr = Array.from(this.mutedUsers.keys());
+                localStorage.setItem("liecord_muted_users", JSON.stringify(arr));
+            } catch (_) {}
+        }
+        if (this.client) {
+            this.client.setUserMuted(userId, nextMuted);
+        }
+    }
+
     @action setUserVolume(userId: string, volume: number) {
         this.userVolumes.set(userId, volume);
         if (typeof window !== "undefined") {
@@ -717,6 +787,33 @@ class VoiceStateReference {
         } catch (_) {}
     }
 
+    syncNativePttShortcut() {
+        if (typeof window === "undefined" || !(window as any).native?.registerGlobalPtt) return;
+        if (this.inputMode === "ptt" && this.pttKey) {
+            let accel = this.pttKey;
+            if (accel.startsWith("Key")) accel = accel.slice(3);
+            else if (accel.startsWith("Digit")) accel = accel.slice(5);
+            else if (accel === "ControlLeft" || accel === "ControlRight") accel = "Control";
+            else if (accel === "AltLeft" || accel === "AltRight") accel = "Alt";
+            else if (accel === "ShiftLeft" || accel === "ShiftRight") accel = "Shift";
+            (window as any).native.registerGlobalPtt(accel).catch(() => {});
+        } else {
+            (window as any).native?.unregisterGlobalPtt?.().catch(() => {});
+        }
+    }
+
+    @action setVadThreshold(val: number) {
+        this.vadThreshold = Math.max(0, Math.min(100, val));
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem("liecord_vad_threshold", String(this.vadThreshold));
+            } catch (_) {}
+        }
+        if (this.client) {
+            this.client.setVadThreshold(this.vadThreshold);
+        }
+    }
+
     @action setInputMode(mode: "voice_activity" | "ptt") {
         this.inputMode = mode;
         if (typeof window !== "undefined") {
@@ -733,6 +830,7 @@ class VoiceStateReference {
                 this.client?.startProduce({} as any, "audio");
             }
         }
+        this.syncNativePttShortcut();
     }
 
     @action setPttKey(code: string, label: string) {
@@ -742,6 +840,7 @@ class VoiceStateReference {
             localStorage.setItem("liecord_ptt_key", code);
             localStorage.setItem("liecord_ptt_key_label", label);
         }
+        this.syncNativePttShortcut();
     }
 
     @action handlePttKeyDown(code: string) {

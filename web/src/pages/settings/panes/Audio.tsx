@@ -1,7 +1,7 @@
 import { observer } from "mobx-react-lite";
 import styles from "./Panes.module.scss";
 import { Text } from "preact-i18n";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState, useRef } from "preact/hooks";
 
 import { Button, Category, ComboBox, Tip } from "@revoltchat/ui";
 
@@ -32,6 +32,105 @@ export const Audio = observer(() => {
     });
     const [error, setError] = useState<DOMException | undefined>(undefined);
     const [isRecordingPtt, setIsRecordingPtt] = useState(false);
+    const [isTestingMic, setIsTestingMic] = useState(false);
+    const testAudioCtxRef = useRef<AudioContext | null>(null);
+    const testStreamRef = useRef<MediaStream | null>(null);
+    const testAnimRef = useRef<number | null>(null);
+    const meterFillRef = useRef<HTMLDivElement | null>(null);
+    const statusTextRef = useRef<HTMLSpanElement | null>(null);
+
+    const stopMicTest = () => {
+        if (testAnimRef.current) {
+            cancelAnimationFrame(testAnimRef.current);
+            testAnimRef.current = null;
+        }
+        if (testStreamRef.current) {
+            testStreamRef.current.getTracks().forEach((t) => t.stop());
+            testStreamRef.current = null;
+        }
+        if (testAudioCtxRef.current) {
+            testAudioCtxRef.current.close().catch(() => {});
+            testAudioCtxRef.current = null;
+        }
+        if (meterFillRef.current) {
+            meterFillRef.current.style.width = "0%";
+        }
+        if (statusTextRef.current) {
+            statusTextRef.current.textContent = "Не активно";
+            statusTextRef.current.style.color = "var(--tertiary-foreground)";
+        }
+        setIsTestingMic(false);
+    };
+
+    const startMicTest = async () => {
+        stopMicTest();
+        try {
+            const inputId = window.localStorage.getItem("audioInputDevice");
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: inputId ? { deviceId: { exact: inputId } } : true,
+            });
+            testStreamRef.current = stream;
+
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            const ctx = new AudioCtx();
+            if (ctx.state === "suspended") {
+                await ctx.resume().catch(() => {});
+            }
+            testAudioCtxRef.current = ctx;
+
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.smoothingTimeConstant = 0.3;
+
+            const source = ctx.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            setIsTestingMic(true);
+
+            const updateMeter = () => {
+                if (!analyser || !testStreamRef.current) return;
+                analyser.getByteFrequencyData(dataArray);
+
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const avg = sum / dataArray.length;
+                // Scale 0..255 average to 0..100%
+                const percent = Math.min(100, Math.round((avg / 120) * 100));
+
+                if (meterFillRef.current) {
+                    meterFillRef.current.style.width = percent + "%";
+                }
+
+                const threshold = voiceState.vadThreshold;
+                const isVoice = percent >= threshold && percent > 2;
+                if (statusTextRef.current) {
+                    if (isVoice) {
+                        statusTextRef.current.textContent = "Голос обнаружен";
+                        statusTextRef.current.style.color = "#23a55a";
+                    } else {
+                        statusTextRef.current.textContent = percent > 1 ? "Тишина (гейт закрыт)" : "Тишина";
+                        statusTextRef.current.style.color = "var(--tertiary-foreground)";
+                    }
+                }
+
+                testAnimRef.current = requestAnimationFrame(updateMeter);
+            };
+
+            testAnimRef.current = requestAnimationFrame(updateMeter);
+        } catch (err) {
+            console.error("Failed to start mic test:", err);
+            stopMicTest();
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            stopMicTest();
+        };
+    }, []);
 
     const askOrGetPermission = async () => {
         try {
@@ -316,6 +415,113 @@ export const Audio = observer(() => {
                         </ComboBox>
                     </div>
                 </div>
+
+                {/* Microphone Level & VAD Live Test */}
+                <div style={{
+                    marginTop: 24,
+                    padding: "16px 18px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--secondary-background)",
+                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Проверка микрофона и чувствительность</h3>
+                            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tertiary-foreground)" }}>
+                                Проверьте громкость входящего сигнала и настройте порог срабатывания шумоподавления
+                            </p>
+                        </div>
+                        <Button
+                            compact
+                            palette={isTestingMic ? "error" : "accent"}
+                            onClick={() => {
+                                if (isTestingMic) stopMicTest();
+                                else startMicTest();
+                            }}>
+                            {isTestingMic ? "Остановить проверку" : "Проверить микрофон"}
+                        </Button>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                            <span style={{ color: "var(--foreground)", fontWeight: 500 }}>Уровень входного сигнала:</span>
+                            <span ref={statusTextRef} style={{ fontWeight: 600, color: "var(--tertiary-foreground)" }}>
+                                {isTestingMic ? "Слушаем микрофон..." : 'Нажмите "Проверить микрофон"'}
+                            </span>
+                        </div>
+
+                        {/* Audio Meter Bar with VAD Threshold Marker */}
+                        <div style={{
+                            position: "relative",
+                            width: "100%",
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: "var(--primary-background)",
+                            border: "1px solid rgba(255, 255, 255, 0.08)",
+                            overflow: "hidden"
+                        }}>
+                            <div
+                                ref={meterFillRef}
+                                style={{
+                                    height: "100%",
+                                    width: "0%",
+                                    borderRadius: 9,
+                                    background: "linear-gradient(90deg, #23a55a 0%, #2ecc71 85%, #f1c40f 100%)",
+                                    transition: "width 0.05s ease-out",
+                                    boxShadow: "0 0 8px rgba(35, 165, 90, 0.4)"
+                                }}
+                            />
+                            {/* VAD Threshold Line Marker */}
+                            {voiceState.inputMode === "voice_activity" && (
+                                <div
+                                    title={"Порог активации: " + voiceState.vadThreshold + "%"}
+                                    style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        bottom: 0,
+                                        left: (voiceState.vadThreshold + "%"),
+                                        width: 3,
+                                        backgroundColor: "#ffffff",
+                                        boxShadow: "0 0 6px rgba(0,0,0,0.8), 0 0 4px #5865f2",
+                                        pointerEvents: "none",
+                                        zIndex: 2,
+                                        transform: "translateX(-50%)"
+                                    }}
+                                />
+                            )}
+                        </div>
+
+                        {/* VAD Threshold Slider */}
+                        {voiceState.inputMode === "voice_activity" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                                    <span style={{ color: "var(--tertiary-foreground)" }}>
+                                        Порог срабатывания голоса: <strong>{voiceState.vadThreshold}%</strong>
+                                    </span>
+                                    <span style={{ color: "var(--tertiary-foreground)" }}>
+                                        {voiceState.vadThreshold < 30 ? "Высокая чувствительность" : voiceState.vadThreshold > 70 ? "Низкая чувствительность" : "Оптимально"}
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={voiceState.vadThreshold}
+                                    onInput={(e: any) => voiceState.setVadThreshold(Number(e.currentTarget.value))}
+                                    style={{
+                                        width: "100%",
+                                        accentColor: "#5865f2",
+                                        cursor: "pointer"
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className={styles.audioRow} style={{ marginTop: 20 }}>
                     <div className={styles.select} style={{ width: "100%" }}>
                         <h3>Режим активации микрофона</h3>

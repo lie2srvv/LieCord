@@ -103,6 +103,19 @@ export default defineConfig({
             input: {
                 main: resolve(__dirname, "index.html"),
             },
+            output: {
+                manualChunks(id) {
+                    if (id.includes("node_modules/livekit-client")) {
+                        return "vendor-livekit";
+                    }
+                    if (id.includes("node_modules/highlight.js") || id.includes("node_modules/katex")) {
+                        return "vendor-syntax";
+                    }
+                    if (id.includes("node_modules/feather-icons")) {
+                        return "vendor-icons";
+                    }
+                },
+            },
         },
     },
     optimizeDeps: {

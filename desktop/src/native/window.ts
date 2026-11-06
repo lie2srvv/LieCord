@@ -7,6 +7,7 @@ import {
   MenuItem,
   app,
   desktopCapturer,
+  globalShortcut,
   ipcMain,
   nativeImage,
   session,
@@ -655,6 +656,66 @@ export function createMainWindow() {
     app.relaunch();
     quitApp();
   });
+
+  // Global Push-To-Talk IPC registration (works across games & minimized window)
+  let registeredPttShortcut: string | null = null;
+  let pttReleaseTimer: NodeJS.Timeout | null = null;
+  let pttIsPressed = false;
+
+  ipcMain.handle("registerGlobalPtt", (_, shortcut: string) => {
+    if (!shortcut || typeof shortcut !== "string") return false;
+    try {
+      if (registeredPttShortcut) {
+        try {
+          globalShortcut.unregister(registeredPttShortcut);
+        } catch (_) {}
+        registeredPttShortcut = null;
+      }
+      const success = globalShortcut.register(shortcut, () => {
+        if (!pttIsPressed) {
+          pttIsPressed = true;
+          mainWindow?.webContents.send("globalPtt", true);
+        }
+        if (pttReleaseTimer) {
+          clearTimeout(pttReleaseTimer);
+        }
+        pttReleaseTimer = setTimeout(() => {
+          pttIsPressed = false;
+          mainWindow?.webContents.send("globalPtt", false);
+          pttReleaseTimer = null;
+        }, 320);
+      });
+
+      if (success) {
+        registeredPttShortcut = shortcut;
+        console.log("[Global PTT] Registered: " + shortcut);
+      } else {
+        console.warn("[Global PTT] Could not register: " + shortcut);
+      }
+      return success;
+    } catch (err) {
+      console.error("[Global PTT] Error: ", err);
+      return false;
+    }
+  });
+
+  ipcMain.handle("unregisterGlobalPtt", () => {
+    if (registeredPttShortcut) {
+      try {
+        globalShortcut.unregister(registeredPttShortcut);
+      } catch (_) {}
+      registeredPttShortcut = null;
+    }
+    if (pttReleaseTimer) {
+      clearTimeout(pttReleaseTimer);
+      pttReleaseTimer = null;
+    }
+    if (pttIsPressed) {
+      pttIsPressed = false;
+      mainWindow?.webContents.send("globalPtt", false);
+    }
+    return true;
+  });
 }
 
 /**
@@ -668,6 +729,9 @@ export function quitApp() {
 // Ensure global app quit works properly
 app.on("before-quit", () => {
   shouldQuit = true;
+  try {
+    globalShortcut.unregisterAll();
+  } catch (_) {}
 });
 
 

@@ -75,6 +75,7 @@ class NoiseGateProcessor
 {
     name = "liecord-noise-gate";
     processedTrack?: MediaStreamTrack;
+    public thresholdDb: number = -43;
     private audioContext?: AudioContext;
     private sourceNode?: MediaStreamAudioSourceNode;
     private filterNode?: BiquadFilterNode;
@@ -124,7 +125,6 @@ class NoiseGateProcessor
         this.scriptProcessor.connect(this.dummyGain);
         this.dummyGain.connect(this.audioContext.destination);
 
-        const thresholdDb = -43; // Sensitive enough for normal/quiet speech, silences keys and music
         const holdMs = 350; // Hold time between words
 
         this.scriptProcessor.onaudioprocess = (e: any) => {
@@ -138,7 +138,7 @@ class NoiseGateProcessor
             const db = 20 * Math.log10(Math.max(rms, 1e-5));
 
             const now = performance.now();
-            if (db > thresholdDb) {
+            if (db > this.thresholdDb) {
                 this.lastSpokeTime = now;
                 if (!this.isOpen) {
                     this.isOpen = true;
@@ -224,6 +224,17 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public screenThumbnails: Map<string, string> = new Map();
     public watchingUserId: string | null = null;
     public userVolumes: Map<string, number> = new Map();
+    public mutedUsers: Set<string> = new Set();
+    public currentNoiseGate?: NoiseGateProcessor;
+    public vadThresholdPercent: number = 50;
+
+    public setVadThreshold(thresholdPercent: number) {
+        this.vadThresholdPercent = Math.max(0, Math.min(100, thresholdPercent));
+        const db = -65 + (this.vadThresholdPercent / 100) * 45;
+        if (this.currentNoiseGate) {
+            this.currentNoiseGate.thresholdDb = db;
+        }
+    }
     private userAudioContexts: Map<string, AudioContext> = new Map();
     private userGainNodes: Map<string, GainNode> = new Map();
 
@@ -253,6 +264,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 }
             } catch (_) {}
             this.audioProducer = undefined;
+            this.currentNoiseGate = undefined;
         }
     }
 
@@ -274,6 +286,8 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                     track.setAudioContext(ctx);
                 }
                 const processor = new NoiseGateProcessor();
+                processor.thresholdDb = -65 + (this.vadThresholdPercent / 100) * 45;
+                this.currentNoiseGate = processor;
                 await track.setProcessor(processor);
                 console.log(
                     "[VoiceClient] LieCord smart noise suppression & gate activated",
@@ -523,6 +537,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 Object.keys(saved).forEach((uid) => {
                     this.userVolumes.set(uid, Number(saved[uid]));
                 });
+                const mutedSaved = JSON.parse(localStorage.getItem("liecord_muted_users") || "[]");
+                if (Array.isArray(mutedSaved)) {
+                    this.mutedUsers = new Set(mutedSaved);
+                }
             } catch (_) {}
         }
 
@@ -1216,8 +1234,9 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                   )
               );
 
+        const isUserMuted = this.mutedUsers.has(userId);
         elements.forEach((el) => {
-            if (this.isDeaf) {
+            if (this.isDeaf || isUserMuted) {
                 el.muted = true;
                 return;
             }
@@ -1274,7 +1293,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         try {
             const p = this.room?.getParticipantByIdentity(userId);
             if (p && typeof (p as any).setVolume === "function") {
-                (p as any).setVolume(Math.min(1.0, normalized));
+                (p as any).setVolume(isUserMuted ? 0 : Math.min(1.0, normalized));
             }
         } catch (_) {}
     }
@@ -1286,6 +1305,27 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
                 const saved = JSON.parse(localStorage.getItem("liecord_user_volumes") || "{}");
                 saved[userId] = volume;
                 localStorage.setItem("liecord_user_volumes", JSON.stringify(saved));
+            } catch (_) {}
+        }
+        this.applyUserVolume(userId);
+    }
+
+    public isUserMuted(userId: string): boolean {
+        return this.mutedUsers.has(userId);
+    }
+
+    public setUserMuted(userId: string, muted: boolean) {
+        if (muted) {
+            this.mutedUsers.add(userId);
+        } else {
+            this.mutedUsers.delete(userId);
+        }
+        if (typeof window !== "undefined") {
+            try {
+                localStorage.setItem(
+                    "liecord_muted_users",
+                    JSON.stringify(Array.from(this.mutedUsers))
+                );
             } catch (_) {}
         }
         this.applyUserVolume(userId);

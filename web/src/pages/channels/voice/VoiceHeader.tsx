@@ -1632,23 +1632,41 @@ export default observer(({ id }: Props) => {
                     />
                     <ContextMenuPopup x={contextMenu.x} y={contextMenu.y}>
                         {contextMenu.userId !== selfId && (
-                            <div className="volume-slider-group" onClick={(e: any) => e.stopPropagation()}>
-                                <div className="slider-header">
-                                    <span>Громкость</span>
-                                    <span className="slider-val">{voiceState.getUserVolume(contextMenu.userId)}%</span>
+                            <>
+                                <div className="volume-slider-group" onClick={(e: any) => e.stopPropagation()}>
+                                    <div className="slider-header">
+                                        <span>Громкость</span>
+                                        <span className="slider-val">
+                                            {voiceState.isUserMuted(contextMenu.userId)
+                                                ? "Заглушен"
+                                                : `${voiceState.getUserVolume(contextMenu.userId)}%`}
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="200"
+                                        step="1"
+                                        disabled={voiceState.isUserMuted(contextMenu.userId)}
+                                        value={voiceState.getUserVolume(contextMenu.userId)}
+                                        onInput={(e: any) => {
+                                            const val = Number(e.currentTarget.value);
+                                            voiceState.setUserVolume(contextMenu.userId, val);
+                                        }}
+                                    />
                                 </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="200"
-                                    step="1"
-                                    value={voiceState.getUserVolume(contextMenu.userId)}
-                                    onInput={(e: any) => {
-                                        const val = Number(e.currentTarget.value);
-                                        voiceState.setUserVolume(contextMenu.userId, val);
-                                    }}
-                                />
-                            </div>
+                                <button
+                                    className={`menu-item ${voiceState.isUserMuted(contextMenu.userId) ? "danger" : ""}`}
+                                    onClick={() => {
+                                        voiceState.toggleUserMute(contextMenu.userId);
+                                        setContextMenu(null);
+                                    }}>
+                                    <VolumeMute size={16} />
+                                    {voiceState.isUserMuted(contextMenu.userId)
+                                        ? "Включить звук участника"
+                                        : "Заглушить для себя"}
+                                </button>
+                            </>
                         )}
 
                         {activeStreamEntries.some((v) => v.userId === contextMenu.userId && !v.isSelf) && (
