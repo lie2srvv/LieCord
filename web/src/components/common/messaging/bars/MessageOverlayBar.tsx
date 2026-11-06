@@ -25,6 +25,8 @@ import { QueuedMessage } from "../../../../mobx/stores/MessageQueue";
 import { modalController } from "../../../../controllers/modals/ModalController";
 import Tooltip from "../../../common/Tooltip";
 import { ReactionWrapper } from "../attachments/Reactions";
+import { emojiDictionary } from "../../../../assets/emojis";
+import { RenderEmoji } from "../../../markdown/plugins/emoji";
 
 interface Props {
     reactionsOpen: boolean;
@@ -121,16 +123,35 @@ export const MessageOverlayBar = observer(
                 )}
 
                 {message.channel?.havePermission("React") && (
-                    <ReactionWrapper
-                        open={reactionsOpen}
-                        setOpen={setReactionsOpen}
-                        message={message}>
-                        <Tooltip content="React">
-                            <Entry>
-                                <HappyBeaming size={18} />
-                            </Entry>
-                        </Tooltip>
-                    </ReactionWrapper>
+                    <>
+                        {["+1", "heart", "joy"].map((emojiKey) => (
+                            <Tooltip key={emojiKey} content={"Реакция :" + emojiKey + ":"}>
+                                <Entry
+                                    style={{ fontSize: 15 }}
+                                    onClick={() => {
+                                        const symbol = (emojiDictionary as any)[emojiKey] ?? emojiKey;
+                                        message.react(symbol);
+                                        try {
+                                            const recent = JSON.parse(localStorage.getItem("liecord_recent_emojis") || "[]");
+                                            const next = [emojiKey, ...recent.filter((x: string) => x !== emojiKey)].slice(0, 24);
+                                            localStorage.setItem("liecord_recent_emojis", JSON.stringify(next));
+                                        } catch (_) {}
+                                    }}>
+                                    <RenderEmoji match={emojiKey} {...({} as any)} />
+                                </Entry>
+                            </Tooltip>
+                        ))}
+                        <ReactionWrapper
+                            open={reactionsOpen}
+                            setOpen={setReactionsOpen}
+                            message={message}>
+                            <Tooltip content="Добавить реакцию">
+                                <Entry>
+                                    <HappyBeaming size={18} />
+                                </Entry>
+                            </Tooltip>
+                        </ReactionWrapper>
+                    </>
                 )}
 
                 {isAuthor && (

@@ -8,6 +8,7 @@ import {
     Group,
 } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
+import { useEffect } from "preact/hooks";
 import { useHistory } from "react-router-dom";
 import styled, { css } from "styled-components/macro";
 
@@ -94,6 +95,18 @@ export default function HeaderActions({ channel }: ChannelHeaderProps) {
         chainedDefer(() => internalEmit("RightSidebar", "open", "search"));
     }
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F" || e.code === "KeyF")) {
+                e.preventDefault();
+                e.stopPropagation();
+                openSearch();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isTouchscreenDevice, layout]);
+
     function openMembers() {
         if (!isTouchscreenDevice) {
             layout.toggleSectionState(SIDEBAR_MEMBERS, true);
@@ -139,7 +152,7 @@ export default function HeaderActions({ channel }: ChannelHeaderProps) {
                     </IconButton>
                 )}
                 {channel.channel_type !== "VoiceChannel" && (
-                    <IconButton onClick={openSearch}>
+                    <IconButton onClick={openSearch} title="Поиск сообщений (Ctrl+F)">
                         <Search size={25} />
                     </IconButton>
                 )}

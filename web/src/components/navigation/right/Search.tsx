@@ -107,6 +107,8 @@ export function SearchSidebar({ close }: Props) {
                         <Text id="app.main.channel.search.title" />
                     </Category>
                     <InputBox
+                        autoFocus
+                        placeholder="Поиск сообщений... (Enter)"
                         value={query}
                         onKeyDown={(e) => e.key === "Enter" && search()}
                         onChange={(e) => setQuery(e.currentTarget.value)}

@@ -196,18 +196,42 @@ export const HackAlertThisFileWillBeReplaced = observer(
             }
         }
 
+        let recentList: string[] = [];
+        try {
+            const saved = localStorage.getItem("liecord_recent_emojis");
+            if (saved) recentList = JSON.parse(saved);
+        } catch (_) {}
+
+        if (recentList.length > 0) {
+            emojis["recent"] = recentList.map((id) => ({ id }));
+            categories.unshift({
+                id: "recent",
+                name: "Недавние",
+                emoji: "clock",
+            });
+        }
+
         categories.push({
             id: "default",
             name: "Default",
             emoji: "smiley",
         });
 
+        const handleSelect = (emoji: string) => {
+            try {
+                const current = JSON.parse(localStorage.getItem("liecord_recent_emojis") || "[]");
+                const next = [emoji, ...current.filter((x: string) => x !== emoji)].slice(0, 24);
+                localStorage.setItem("liecord_recent_emojis", JSON.stringify(next));
+            } catch (_) {}
+            onSelect(emoji);
+        };
+
         return (
             <Picker
                 emojis={emojis}
                 categories={categories}
                 renderEmoji={renderEmoji}
-                onSelect={onSelect}
+                onSelect={handleSelect}
                 onClose={onClose}
             />
         );
