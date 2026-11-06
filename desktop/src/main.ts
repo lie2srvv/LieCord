@@ -11,10 +11,11 @@ import { initDiscordRpc } from "./native/discordRpc";
 import { initTray } from "./native/tray";
 import { initVirtualMic } from "./native/virtualMic";
 import { initNotifications } from "./native/notifications";
-import { BUILD_URL, createMainWindow, mainWindow } from "./native/window";
+import { BUILD_URL, createMainWindow, mainWindow, triggerMemoryCleanup } from "./native/window";
 
-// Limit V8 heap to prevent unnecessary RAM accumulation across long sessions
-app.commandLine.appendSwitch("js-flags", "--max-old-space-size=512");
+// Limit V8 heap to 256MB and expose GC to prevent RAM accumulation across long sessions
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=256 --expose-gc");
+app.commandLine.appendSwitch("disable-background-timer-throttling", "false");
 
 // In Flatpak, we have to update the temp dir to a shared directory across host and sandbox;
 // otherwise, the icon will not show up in the tray when using app indicators.
@@ -65,6 +66,7 @@ if (acquiredLock) {
   app.on("ready", async () => {
     powerMonitor.on("suspend", () => {
       console.log("[Desktop] System entered sleep/suspend mode");
+      triggerMemoryCleanup();
     });
     powerMonitor.on("resume", () => {
       console.log("[Desktop] System resumed from sleep");

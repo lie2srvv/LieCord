@@ -34,6 +34,8 @@ export default styled.div<BaseMessageProps>`
     padding: 0.125rem;
     flex-direction: row;
     padding-inline-end: 16px;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 44px;
 
     ${() =>
         isTouchscreenDevice &&

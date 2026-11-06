@@ -1,3 +1,4 @@
+export const MAX_BUFFERED_MESSAGES = 75;
 import { runInAction } from "mobx";
 
 import { SMOOTH_SCROLL_ON_RECEIVE } from "../Singleton";
@@ -56,8 +57,8 @@ export const SimpleRenderer: RendererRoutines = {
 
         let messages = [...renderer.messages, message];
         let atTop = renderer.atTop;
-        if (messages.length > 150) {
-            messages = messages.slice(messages.length - 150);
+        if (messages.length > MAX_BUFFERED_MESSAGES) {
+            messages = messages.slice(messages.length - MAX_BUFFERED_MESSAGES);
             atTop = false;
         }
 
@@ -116,8 +117,8 @@ export const SimpleRenderer: RendererRoutines = {
                 renderer.atTop = true;
             }
 
-            if (renderer.messages.length > 150) {
-                renderer.messages = renderer.messages.slice(0, 150);
+            if (renderer.messages.length > MAX_BUFFERED_MESSAGES) {
+                renderer.messages = renderer.messages.slice(0, MAX_BUFFERED_MESSAGES);
                 renderer.atBottom = false;
             }
 
@@ -153,8 +154,8 @@ export const SimpleRenderer: RendererRoutines = {
                 renderer.atBottom = true;
             }
 
-            if (renderer.messages.length > 150) {
-                renderer.messages.splice(0, renderer.messages.length - 150);
+            if (renderer.messages.length > MAX_BUFFERED_MESSAGES) {
+                renderer.messages.splice(0, renderer.messages.length - MAX_BUFFERED_MESSAGES);
                 renderer.atTop = false;
             }
 

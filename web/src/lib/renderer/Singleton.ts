@@ -210,7 +210,7 @@ export class ChannelRenderer {
 }
 
 // Bounded LRU cache of channel renderers to prevent unbounded RAM accumulation and listener leaks
-const MAX_CACHED_RENDERERS = 25;
+const MAX_CACHED_RENDERERS = 8;
 const renderers = new Map<string, ChannelRenderer>();
 
 export function getRenderer(channel: Channel): ChannelRenderer {

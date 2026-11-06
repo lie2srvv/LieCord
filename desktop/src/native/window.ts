@@ -191,8 +191,20 @@ export function createMainWindow() {
     }
   });
 
-  mainWindow.on("show", updateTrayMenu);
-  mainWindow.on("hide", updateTrayMenu);
+  mainWindow.on("show", () => {
+    cancelMemoryCleanup();
+    updateTrayMenu();
+  });
+  mainWindow.on("hide", () => {
+    updateTrayMenu();
+    triggerMemoryCleanup();
+  });
+  mainWindow.on("minimize", () => {
+    triggerMemoryCleanup();
+  });
+  mainWindow.on("restore", () => {
+    cancelMemoryCleanup();
+  });
 
   function saveWindowState() {
     config.windowState = {
@@ -642,3 +654,42 @@ export function quitApp() {
 app.on("before-quit", () => {
   shouldQuit = true;
 });
+
+
+let memoryCleanupTimer: NodeJS.Timeout | null = null;
+
+export function cancelMemoryCleanup() {
+  if (memoryCleanupTimer) {
+    clearTimeout(memoryCleanupTimer);
+    memoryCleanupTimer = null;
+  }
+}
+
+export function triggerMemoryCleanup() {
+  cancelMemoryCleanup();
+  memoryCleanupTimer = setTimeout(() => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log("[Memory] Releasing unused renderer cache and triggering GC...");
+        mainWindow.webContents.session.clearCache().catch(() => {});
+        mainWindow.webContents
+          .executeJavaScript(
+            "if (typeof window !== 'undefined' && typeof (window as any).gc === 'function') { (window as any).gc(); }",
+          )
+          .catch(() => {});
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof global.gc === "function") {
+        global.gc();
+      }
+    } catch (_) {}
+
+    try {
+      if (typeof (process as any).trimWorkingSet === "function") {
+        (process as any).trimWorkingSet();
+      }
+    } catch (_) {}
+  }, 1000);
+}
