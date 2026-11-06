@@ -161,27 +161,42 @@ export function createMainWindow() {
     console.log("[Window] dom-ready");
   });
 
+  let retryTimer: NodeJS.Timeout | null = null;
+  const loadWithRetry = (attempt = 1) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    console.log(`[Window] Initiating loadURL (attempt ${attempt}) to:`, BUILD_URL.toString());
+    mainWindow
+      .loadURL(BUILD_URL.toString())
+      .then(() => {
+        console.log("[Window] loadURL promise resolved successfully");
+      })
+      .catch((err) => {
+        console.error(`[Renderer Load URL Error attempt ${attempt}]:`, err);
+        if (attempt < 5) {
+          retryTimer = setTimeout(() => loadWithRetry(attempt + 1), 2000);
+        } else {
+          revealWindow();
+        }
+      });
+  };
+
   mainWindow.webContents.on(
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedURL) => {
       console.error(
         `[Renderer Load Failed]: ${errorCode} ${errorDescription} (${validatedURL})`,
       );
-      revealWindow();
+      // Auto retry after 2 seconds if network was momentarily unreachable or returned 502/503
+      if (!retryTimer) {
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          loadWithRetry(2);
+        }, 2000);
+      }
     },
   );
 
-  // Load the remote client
-  console.log("[Window] Initiating loadURL to:", BUILD_URL.toString());
-  mainWindow
-    .loadURL(BUILD_URL.toString())
-    .then(() => {
-      console.log("[Window] loadURL promise resolved successfully");
-    })
-    .catch((err) => {
-      console.error("[Renderer Load URL Error]:", err);
-      revealWindow();
-    });
+  loadWithRetry(1);
 
   // hide window when closed (if minimise to tray is enabled)
   mainWindow.on("close", (event) => {
