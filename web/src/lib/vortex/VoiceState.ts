@@ -17,7 +17,7 @@ export enum VoiceStatus {
     AUTHENTICATING,
     RTC_CONNECTING,
     CONNECTED,
-    // RECONNECTING
+    RECONNECTING = 9,
 }
 
 export interface ChannelVoiceParticipant {
@@ -493,6 +493,17 @@ class VoiceStateReference {
             client.on("activeSpeakersChanged", this.syncState);
             client.on("screenThumbnailUpdated", this.syncState);
             client.on("screenSubscriptionChanged", this.syncState);
+            client.on("reconnecting", () => {
+                runInAction(() => {
+                    this.status = VoiceStatus.RECONNECTING;
+                });
+            });
+            client.on("reconnected", () => {
+                runInAction(() => {
+                    this.status = VoiceStatus.CONNECTED;
+                });
+                this.syncState();
+            });
 
             runInAction(() => {
                 if (!client.supported()) {

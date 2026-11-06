@@ -18,6 +18,8 @@ interface VoiceEvents {
     ready: () => void;
     error: (error: Error) => void;
     close: (error?: any) => void;
+    reconnecting: () => void;
+    reconnected: () => void;
 
     startProduce: (type: ProduceType) => void;
     stopProduce: (type: ProduceType) => void;
@@ -552,6 +554,20 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
 
         room.on(RoomEvent.Connected, () => {
             this.emit("ready");
+        });
+
+        room.on(RoomEvent.Reconnecting, () => {
+            console.warn("[VoiceClient] WebRTC connection lost, reconnecting...");
+            this.emit("reconnecting");
+        });
+
+        room.on(RoomEvent.Reconnected, () => {
+            console.info("[VoiceClient] WebRTC reconnected successfully!");
+            this.emit("reconnected");
+            this.emit("ready");
+            if (!this.isMuted && !this.isDeaf) {
+                this.startProduce({} as any, "audio").catch(() => {});
+            }
         });
 
         room.on(RoomEvent.Disconnected, () => {

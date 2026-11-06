@@ -69,7 +69,7 @@ export default function Attachment({ attachment, hasContent }: Props) {
                             src={url}
                             alt={filename}
                             controls
-                            loading="lazy"
+                            preload="none"
                             width={metadata.width}
                             height={metadata.height}
                             onMouseDown={(ev) =>
@@ -88,7 +88,7 @@ export default function Attachment({ attachment, hasContent }: Props) {
                     className={classNames(styles.attachment, styles.audio)}
                     data-has-content={hasContent}>
                     <AttachmentActions attachment={attachment} />
-                    <audio src={url} controls />
+                    <audio src={url} controls preload="none" />
                 </div>
             );
         }

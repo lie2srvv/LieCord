@@ -1475,6 +1475,9 @@ export default observer(({ id }: Props) => {
                 {voiceState.status === VoiceStatus.CONNECTED && (
                     <Text id="app.main.channel.voice.connected" />
                 )}
+                {voiceState.status === VoiceStatus.RECONNECTING && (
+                    <span style={{ color: "#f39c12", fontWeight: 600 }}>Переподключение...</span>
+                )}
             </div>
 
             <div className="actions">
