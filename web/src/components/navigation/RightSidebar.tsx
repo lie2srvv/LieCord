@@ -8,9 +8,10 @@ import { internalSubscribe } from "../../lib/eventEmitter";
 import SidebarBase from "./SidebarBase";
 import MemberSidebar from "./right/MemberSidebar";
 import { SearchSidebar } from "./right/Search";
+import { PinsSidebar } from "./right/Pins";
 
 export default function RightSidebar() {
-    const [sidebar, setSidebar] = useState<"search" | undefined>();
+    const [sidebar, setSidebar] = useState<"search" | "pins" | undefined>();
     const close = () => setSidebar(undefined);
 
     useEffect(
@@ -26,6 +27,8 @@ export default function RightSidebar() {
     const content =
         sidebar === "search" ? (
             <SearchSidebar close={close} />
+        ) : sidebar === "pins" ? (
+            <PinsSidebar close={close} />
         ) : (
             <MemberSidebar />
         );

@@ -6,6 +6,7 @@ import {
     PhoneCall,
     PhoneOff,
     Group,
+    Pin,
 } from "@styled-icons/boxicons-solid";
 import { observer } from "mobx-react-lite";
 import { useEffect } from "preact/hooks";
@@ -83,6 +84,18 @@ export default function HeaderActions({ channel }: ChannelHeaderProps) {
         });
     }
 
+    function openPins() {
+        if (
+            !isTouchscreenDevice &&
+            !layout.getSectionState(SIDEBAR_MEMBERS, true)
+        ) {
+            layout.toggleSectionState(SIDEBAR_MEMBERS, true);
+        }
+
+        slideOpen();
+        chainedDefer(() => internalEmit("RightSidebar", "open", "pins"));
+    }
+
     function openSearch() {
         if (
             !isTouchscreenDevice &&
@@ -149,6 +162,11 @@ export default function HeaderActions({ channel }: ChannelHeaderProps) {
                     channel.channel_type === "TextChannel") && (
                     <IconButton onClick={openMembers} title="Участники">
                         <Group size={25} />
+                    </IconButton>
+                )}
+                {channel.channel_type !== "VoiceChannel" && (
+                    <IconButton onClick={openPins} title="Закрепленные сообщения">
+                        <Pin size={24} />
                     </IconButton>
                 )}
                 {channel.channel_type !== "VoiceChannel" && (

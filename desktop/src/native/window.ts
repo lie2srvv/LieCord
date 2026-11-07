@@ -423,9 +423,16 @@ export function createMainWindow() {
   // Automatically grant media & notification permissions without repeated prompts,
   // strictly enforcing that requests originate only from our trusted BUILD_URL host.
   session.defaultSession.setPermissionRequestHandler(
-    async (webContents, permission, callback) => {
-      if (!isAllowedOrigin(webContents.getURL())) {
-        console.warn(`[Security] Blocked permission ${permission} for untrusted origin: ${webContents.getURL()}`);
+    async (webContents, permission, callback, details: any) => {
+      let url =
+        webContents && typeof webContents.getURL === "function"
+          ? webContents.getURL()
+          : details?.requestingUrl || "";
+      if (!url && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        url = mainWindow.webContents.getURL();
+      }
+      if (!isAllowedOrigin(url)) {
+        console.warn(`[Security] Blocked permission ${permission} for untrusted origin: ${url}`);
         return callback(false);
       }
 
@@ -478,8 +485,15 @@ export function createMainWindow() {
   );
 
   session.defaultSession.setPermissionCheckHandler(
-    (webContents, permission) => {
-      if (!isAllowedOrigin(webContents.getURL())) {
+    (webContents, permission, requestingOrigin) => {
+      let url =
+        webContents && typeof webContents.getURL === "function"
+          ? webContents.getURL()
+          : requestingOrigin || "";
+      if (!url && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        url = mainWindow.webContents.getURL();
+      }
+      if (!isAllowedOrigin(url)) {
         return false;
       }
 

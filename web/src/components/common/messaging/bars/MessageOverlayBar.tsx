@@ -7,7 +7,9 @@ import {
     InfoSquare,
     Notification,
     HappyBeaming,
+    Pin,
 } from "@styled-icons/boxicons-solid";
+import { isMessagePinned, togglePinMessage } from "../../../../lib/pins";
 import { observer } from "mobx-react-lite";
 import { Message as MessageObject } from "revolt.js";
 import styled from "styled-components";
@@ -95,6 +97,7 @@ export const MessageOverlayBar = observer(
         const isAuthor = message.author_id === client.user!._id;
 
         const [copied, setCopied] = useState<"link" | "id">(null!);
+        const [pinned, setPinned] = useState(() => isMessagePinned(message.channel_id, message._id));
         const [extraActions, setExtra] = useState(shiftKeyPressed);
 
         useEffect(() => {
@@ -186,6 +189,15 @@ export const MessageOverlayBar = observer(
                         </Entry>
                     </Tooltip>
                 ) : undefined}
+                <Tooltip content={pinned ? "Открепить сообщение" : "Закрепить сообщение"}>
+                    <Entry
+                        onClick={() => {
+                            const next = togglePinMessage(message.channel_id, message._id);
+                            setPinned(next);
+                        }}>
+                        <Pin size={18} color={pinned ? "var(--accent)" : undefined} />
+                    </Entry>
+                </Tooltip>
                 <Tooltip content="More">
                     <Entry
                         onClick={() =>
