@@ -13,6 +13,7 @@ import {
   session,
   systemPreferences,
   clipboard,
+  screen,
 } from "electron";
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
@@ -67,10 +68,44 @@ function safeUnloadAudioModule(id: string | null) {
 /**
  * Create the main application window
  */
+/**
+ * Ensure a window is placed within visible screen bounds and not off-screen
+ */
+export function ensureWindowVisible(win: BrowserWindow) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const [x, y] = win.getPosition();
+    const [width, height] = win.getSize();
+
+    // Check if coordinates or sizes are corrupted (e.g. Windows -32000 minimized coordinates)
+    if (x <= -10000 || y <= -10000 || width < 200 || height < 200) {
+      console.warn("[Window] Corrupted or minimized coordinates detected, centering window");
+      win.setSize(Math.max(width, 1280), Math.max(height, 720));
+      win.center();
+      return;
+    }
+
+    const displays = screen.getAllDisplays();
+    const isVisible = displays.some((d) => {
+      const { x: dx, y: dy, width: dw, height: dh } = d.bounds;
+      return x < dx + dw && x + width > dx && y < dy + dh && y + height > dy;
+    });
+
+    if (!isVisible) {
+      console.warn("[Window] Position off-screen, centering window on primary display");
+      win.center();
+    }
+  } catch (err) {
+    console.error("[Window] Failed to check window bounds:", err);
+  }
+}
+
 export function createMainWindow() {
-  // (CLI arg --hidden or config)
-  const startHidden =
-    app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
+  // Only start hidden if explicitly launched via system autostart with --hidden or --autostart
+  const isAutoStart =
+    app.commandLine.hasSwitch("hidden") ||
+    app.commandLine.hasSwitch("autostart");
+  const startHidden = isAutoStart && config.startMinimisedToTray;
   const isMacOS = process.platform === "darwin";
 
   mainWindow = new BrowserWindow({
@@ -105,20 +140,33 @@ export function createMainWindow() {
     mainWindow.webContents.setZoomLevel(0);
   });
 
-  // restore window state if available
-  if (config.windowState.x > 0 || config.windowState.y > 0) {
+  // restore window state if valid
+  if (
+    typeof config.windowState.x === "number" &&
+    typeof config.windowState.y === "number" &&
+    config.windowState.x > -10000 &&
+    config.windowState.y > -10000 &&
+    (config.windowState.x !== 0 || config.windowState.y !== 0)
+  ) {
     mainWindow.setPosition(
-      config.windowState.x ?? 0,
-      config.windowState.y ?? 0,
+      config.windowState.x,
+      config.windowState.y,
     );
   }
 
-  if (config.windowState.width > 0 && config.windowState.height > 0) {
+  if (
+    typeof config.windowState.width === "number" &&
+    typeof config.windowState.height === "number" &&
+    config.windowState.width >= 300 &&
+    config.windowState.height >= 300
+  ) {
     mainWindow.setSize(
-      config.windowState.width ?? 1280,
-      config.windowState.height ?? 720,
+      config.windowState.width,
+      config.windowState.height,
     );
   }
+
+  ensureWindowVisible(mainWindow);
 
   if (config.windowState.isMaximised && !startHidden) {
     mainWindow.maximize();
@@ -127,9 +175,17 @@ export function createMainWindow() {
   // Show window smoothly when content is ready to prevent blank/black frame flash
   let windowShown = false;
   const revealWindow = () => {
-    if (!windowShown && !startHidden && mainWindow && !mainWindow.isDestroyed()) {
+    if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
+      if (startHidden) {
+        console.log("[Window] Starting hidden in tray (autostart requested)");
+        return;
+      }
       windowShown = true;
       console.log("[Window] Revealing main window now");
+      ensureWindowVisible(mainWindow);
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
       mainWindow.show();
       mainWindow.focus();
     }
@@ -224,13 +280,19 @@ export function createMainWindow() {
   });
 
   function saveWindowState() {
-    config.windowState = {
-      x: mainWindow.getPosition()[0],
-      y: mainWindow.getPosition()[1],
-      width: mainWindow.getSize()[0],
-      height: mainWindow.getSize()[1],
-      isMaximised: mainWindow.isMaximized(),
-    };
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized()) return;
+    try {
+      const pos = mainWindow.getPosition();
+      const size = mainWindow.getSize();
+      if (pos[0] <= -10000 || pos[1] <= -10000 || size[0] < 200 || size[1] < 200) return;
+      config.windowState = {
+        x: pos[0],
+        y: pos[1],
+        width: size[0],
+        height: size[1],
+        isMaximised: mainWindow.isMaximized(),
+      };
+    } catch (_) {}
   }
 
   mainWindow.on("maximize", saveWindowState);

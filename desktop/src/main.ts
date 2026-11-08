@@ -11,10 +11,11 @@ import { initDiscordRpc } from "./native/discordRpc";
 import { initTray } from "./native/tray";
 import { initVirtualMic } from "./native/virtualMic";
 import { initNotifications } from "./native/notifications";
-import { BUILD_URL, createMainWindow, mainWindow, triggerMemoryCleanup } from "./native/window";
+import { BUILD_URL, createMainWindow, ensureWindowVisible, mainWindow, triggerMemoryCleanup } from "./native/window";
 
 // Limit V8 heap to 256MB and expose GC to prevent RAM accumulation across long sessions
-app.commandLine.appendSwitch("js-flags", "--max-old-space-size=256 --expose-gc");
+// Expose GC to allow manual memory cleanup
+app.commandLine.appendSwitch("js-flags", "--expose-gc");
 app.commandLine.appendSwitch("disable-background-timer-throttling", "false");
 
 // In Flatpak, we have to update the temp dir to a shared directory across host and sandbox;
@@ -45,7 +46,6 @@ if (!config.hardwareAcceleration) {
 } else {
   // Enable hardware video decoding (VA-API on Linux, D3D11/NVDEC on Windows, VideoToolbox on macOS)
   app.commandLine.appendSwitch("enable-gpu-rasterization");
-  app.commandLine.appendSwitch("enable-zero-copy");
   app.commandLine.appendSwitch("ignore-gpu-blocklist");
   if (process.platform === "linux") {
     app.commandLine.appendSwitch(
@@ -110,18 +110,23 @@ if (acquiredLock) {
       config.firstLaunch = false;
     }
 
-    initTray();
-    initDiscordRpc();
-    initVirtualMic();
-    initAutoLaunch();
-    initNotifications();
+    try { initTray(); } catch (e) { console.error("Failed to init tray:", e); }
+    try { initDiscordRpc(); } catch (e) { console.error("Failed to init Discord RPC:", e); }
+    try { initVirtualMic(); } catch (e) { console.error("Failed to init virtual mic:", e); }
+    try { initAutoLaunch(); } catch (e) { console.error("Failed to init auto launch:", e); }
+    try { initNotifications(); } catch (e) { console.error("Failed to init notifications:", e); }
   });
 
   // focus the window if we try to launch again
   app.on("second-instance", () => {
-    mainWindow.show();
-    mainWindow.restore();
-    mainWindow.focus();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      ensureWindowVisible(mainWindow);
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 
   // macOS specific behaviour to keep app active in dock:

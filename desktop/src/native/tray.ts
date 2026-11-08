@@ -4,7 +4,7 @@ import trayIconAsset from "../../assets/desktop/icon.png?asset";
 import macOsTrayIconAsset from "../../assets/desktop/iconTemplate.png?asset";
 import { version } from "../../package.json";
 
-import { mainWindow, quitApp } from "./window";
+import { ensureWindowVisible, mainWindow, quitApp } from "./window";
 
 // internal tray state
 let tray: Tray = null;
@@ -28,9 +28,14 @@ export function initTray() {
   tray.setToolTip("LieCord Desktop");
   tray.setImage(trayIcon);
   tray.on("click", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isVisible()) {
       mainWindow.hide();
     } else {
+      ensureWindowVisible(mainWindow);
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
       mainWindow.show();
       mainWindow.focus();
     }
@@ -54,13 +59,19 @@ export function updateTrayMenu() {
       },
       { type: "separator" },
       {
-        label: mainWindow.isVisible() ? "Hide App" : "Show App",
+        label: mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() ? "Hide App" : "Show App",
         type: "normal",
         click() {
+          if (!mainWindow || mainWindow.isDestroyed()) return;
           if (mainWindow.isVisible()) {
             mainWindow.hide();
           } else {
+            ensureWindowVisible(mainWindow);
+            if (mainWindow.isMinimized()) {
+              mainWindow.restore();
+            }
             mainWindow.show();
+            mainWindow.focus();
           }
         },
       },
