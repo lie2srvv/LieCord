@@ -24,6 +24,17 @@ export default function RightSidebar() {
         [setSidebar],
     );
 
+    useEffect(() => {
+        if (!sidebar) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" || e.code === "Escape") {
+                close();
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [sidebar]);
+
     const content =
         sidebar === "search" ? (
             <SearchSidebar close={close} />

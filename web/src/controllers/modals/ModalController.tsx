@@ -197,14 +197,50 @@ class ModalControllerExtended extends ModalController<Modal> {
      * @param text Text to write
      */
     writeText(text: string) {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text);
-        } else {
-            this.push({
-                type: "clipboard",
-                text,
-            });
+        // 1. Try desktop Electron native bridge first if available
+        if (typeof (window as any).native?.writeClipboard === "function") {
+            try {
+                (window as any).native.writeClipboard(text);
+                return;
+            } catch (e) {
+                console.warn("[Clipboard] Native bridge write failed, falling back:", e);
+            }
         }
+
+        // 2. Try modern async Clipboard API
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            navigator.clipboard.writeText(text).catch((err) => {
+                console.warn("[Clipboard] navigator.clipboard.writeText failed:", err);
+                // 3. Fallback to textarea + execCommand for document-unfocused states
+                this.fallbackWriteText(text);
+            });
+            return;
+        }
+
+        // 3. Fallback to execCommand or modal
+        this.fallbackWriteText(text);
+    }
+
+    private fallbackWriteText(text: string) {
+        try {
+            const el = document.createElement("textarea");
+            el.value = text;
+            el.setAttribute("readonly", "");
+            el.style.position = "absolute";
+            el.style.left = "-9999px";
+            el.style.top = "0";
+            document.body.appendChild(el);
+            el.select();
+            el.setSelectionRange(0, 99999);
+            const successful = document.execCommand("copy");
+            document.body.removeChild(el);
+            if (successful) return;
+        } catch (_) {}
+
+        this.push({
+            type: "clipboard",
+            text,
+        });
     }
 
     /**

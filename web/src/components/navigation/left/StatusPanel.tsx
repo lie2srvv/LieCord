@@ -48,6 +48,18 @@ const VoiceConnectedBar = styled.div`
             display: flex;
             align-items: center;
             gap: 4px;
+
+            .ping-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                font-size: 10px;
+                font-weight: 600;
+                padding: 1px 4px;
+                border-radius: 3px;
+                background: rgba(0, 0, 0, 0.25);
+                margin-left: 4px;
+            }
         }
 
         .channel-name {
@@ -187,6 +199,22 @@ export const StatusPanel = observer(() => {
                     <div className="voice-info">
                         <div className="status-title">
                             <PhoneCall size={14} /> Подключено к голосу
+                            {voiceState.currentPingMs > 0 && (
+                                <span
+                                    className="ping-badge"
+                                    style={{
+                                        color:
+                                            voiceState.currentPingMs < 80
+                                                ? "#2ecc71"
+                                                : voiceState.currentPingMs < 160
+                                                ? "#f39c12"
+                                                : "#e74c3c",
+                                    }}
+                                    title={`Задержка сети (LiveKit WebRTC): ${voiceState.currentPingMs} ms`}>
+                                    <span style={{ fontSize: 8 }}>●</span>
+                                    {voiceState.currentPingMs}ms
+                                </span>
+                            )}
                         </div>
                         <div
                             className="channel-name"

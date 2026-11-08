@@ -107,4 +107,8 @@ contextBridge.exposeInMainWorld("native", {
   onGlobalPtt: (callback: (pressed: boolean) => void) => {
     ipcRenderer.on("globalPtt", (_, pressed) => callback(pressed));
   },
+
+  writeClipboard: (text: string) => {
+    ipcRenderer.send("writeClipboard", text);
+  },
 });

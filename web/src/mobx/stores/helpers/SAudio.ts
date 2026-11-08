@@ -97,7 +97,8 @@ export default class SAudio {
         if (definition.enabled) {
             const audio = this.getAudio(definition.path);
             try {
-                audio.play();
+                audio.currentTime = 0;
+                audio.play().catch(() => {});
             } catch (err) {
                 console.error("Hit error while playing", `${sound}:`, err);
             }

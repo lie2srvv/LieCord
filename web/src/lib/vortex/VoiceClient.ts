@@ -33,6 +33,7 @@ interface VoiceEvents {
     activeSpeakersChanged: (speakers: string[]) => void;
     screenThumbnailUpdated: (userId: string, dataUrl: string) => void;
     screenSubscriptionChanged: (userId: string, subscribed: boolean) => void;
+    pingUpdated: (pingMs: number) => void;
 }
 
 export interface ScreenShareOptions {
@@ -229,6 +230,8 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     public mutedUsers: Set<string> = new Set();
     public currentNoiseGate?: NoiseGateProcessor;
     public vadThresholdPercent: number = 50;
+    public currentPingMs: number = 0;
+    private pingInterval?: any;
 
     public setVadThreshold(thresholdPercent: number) {
         this.vadThresholdPercent = Math.max(0, Math.min(100, thresholdPercent));
@@ -553,6 +556,7 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
         this.room = room;
 
         room.on(RoomEvent.Connected, () => {
+            this.startPingMeasurement();
             this.emit("ready");
         });
 
@@ -863,6 +867,10 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
     }
 
     disconnect() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = undefined;
+        }
         if (this.room) {
             this.room.disconnect();
             this.room.removeAllListeners();
@@ -1324,6 +1332,38 @@ export default class VoiceClient extends EventEmitter<VoiceEvents> {
             } catch (_) {}
         }
         this.applyUserVolume(userId);
+    }
+
+    private startPingMeasurement() {
+        if (this.pingInterval) clearInterval(this.pingInterval);
+        const measure = async () => {
+            if (!this.room || !this.roomId) return;
+            try {
+                const pcTransport = (this.room as any).engine?.client?.pctransport || (this.room as any).engine?.pctransport;
+                const pc = pcTransport?._pc || (this.room as any).engine?.subscriber?._pc || (this.room as any).engine?.publisher?._pc;
+                if (!pc || typeof pc.getStats !== "function") return;
+
+                const stats = await pc.getStats();
+                let rtt: number | null = null;
+                stats.forEach((report: any) => {
+                    if (
+                        report.type === "candidate-pair" &&
+                        (report.state === "succeeded" || report.nominated) &&
+                        typeof report.currentRoundTripTime === "number"
+                    ) {
+                        rtt = Math.round(report.currentRoundTripTime * 1000);
+                    }
+                });
+
+                if (rtt !== null && rtt >= 0 && rtt < 10000) {
+                    this.currentPingMs = rtt;
+                    this.emit("pingUpdated", rtt);
+                }
+            } catch (_) {}
+        };
+
+        this.pingInterval = setInterval(measure, 2500);
+        setTimeout(measure, 500);
     }
 
     public isUserMuted(userId: string): boolean {

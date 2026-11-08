@@ -1,4 +1,5 @@
 import { createCallStartedMessage } from "../callMessage";
+import { state } from "../../mobx/State";
 import { action, makeAutoObservable, ObservableMap, runInAction } from "mobx";
 import { Channel, Nullable, toNullable } from "revolt.js";
 
@@ -50,6 +51,7 @@ class VoiceStateReference {
     userVolumes: ObservableMap<string, number> = new ObservableMap();
     mutedUsers: ObservableMap<string, boolean> = new ObservableMap();
     vadThreshold: number = 50;
+    currentPingMs: number = 0;
     inputMode: "voice_activity" | "ptt" = "voice_activity";
     pttKey: string = "ControlLeft";
     pttKeyLabel: string = "Ctrl";
@@ -486,8 +488,23 @@ class VoiceStateReference {
 
             client.on("startProduce", this.syncState);
             client.on("stopProduce", this.syncState);
-            client.on("userJoined", this.syncState);
-            client.on("userLeft", this.syncState);
+            client.on("userJoined", (uid: string) => {
+                this.syncState();
+                if (this.roomId && this.status === VoiceStatus.CONNECTED) {
+                    state.settings?.sounds?.playSound("call_join");
+                }
+            });
+            client.on("userLeft", (uid: string) => {
+                this.syncState();
+                if (this.roomId && this.status === VoiceStatus.CONNECTED) {
+                    state.settings?.sounds?.playSound("call_leave");
+                }
+            });
+            client.on("pingUpdated", (pingMs: number) => {
+                runInAction(() => {
+                    this.currentPingMs = pingMs;
+                });
+            });
             client.on("userStartProduce", this.syncState);
             client.on("userStopProduce", this.syncState);
             client.on("activeSpeakersChanged", this.syncState);
@@ -563,6 +580,7 @@ class VoiceStateReference {
                 this.screenProducing =
                     this.client?.screenProducer !== undefined;
             });
+            state.settings?.sounds?.playSound("call_join");
             this.syncState();
 
             if (this.isDeafened) {
@@ -584,10 +602,14 @@ class VoiceStateReference {
 
     // Disconnect from current channel.
     @action disconnect() {
+        if (this.roomId) {
+            state.settings?.sounds?.playSound("call_leave");
+        }
         this.stopIncomingCall();
         this.connecting = false;
         this.status = VoiceStatus.READY;
         this.roomId = null;
+        this.currentPingMs = 0;
         this.audioProducing = false;
         this.screenProducing = false;
         this.watchingScreenUserId = null;

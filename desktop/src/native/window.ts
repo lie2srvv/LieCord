@@ -12,6 +12,7 @@ import {
   nativeImage,
   session,
   systemPreferences,
+  clipboard,
 } from "electron";
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
@@ -395,6 +396,14 @@ export function createMainWindow() {
     }
   });
 
+  ipcMain.on("writeClipboard", (_, text: string) => {
+    try {
+      clipboard.writeText(text || "");
+    } catch (e) {
+      console.error("[Clipboard] Failed to write text:", e);
+    }
+  });
+
   ipcMain.handle("requestMicrophoneAccess", async () => {
     if (process.platform === "darwin") {
       try {
@@ -442,6 +451,9 @@ export function createMainWindow() {
         "video-capture",
         "display-capture",
         "notifications",
+        "clipboard-read",
+        "clipboard-write",
+        "clipboard-sanitized-write",
       ];
       if (!allowed.includes(permission)) {
         return callback(false);
@@ -503,6 +515,9 @@ export function createMainWindow() {
         "video-capture",
         "display-capture",
         "notifications",
+        "clipboard-read",
+        "clipboard-write",
+        "clipboard-sanitized-write",
       ];
       if (!allowed.includes(permission)) return false;
       if (process.platform === "darwin") {
